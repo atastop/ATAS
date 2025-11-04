@@ -1,0 +1,13 @@
+{
+    "name": "ATAS｜股份分紅試算",
+    "short_name": "ATAS",
+    "start_url": "./",
+    "display": "standalone",
+    "background_color": "#0a0a0a",
+    "theme_color": "#0a0a0a",
+    "icons": [
+      { "src": "./favicon.ico", "sizes": "48x48 64x64 128x128 256x256", "type": "image/x-icon" },
+      { "src": "./apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+    ]
+  }
+  

@@ -4,6 +4,7 @@ import { useState } from "react";
 
 export default function Dividend() {
   // ===== 狀態 =====
+  const logoUrl = import.meta.env.BASE_URL + 'atas-logo.png';
   const [inputA, setInputA] = useState("10000000");
   const [inputB, setInputB] = useState("50000000");
   const [inputC, setInputC] = useState("40000000");
@@ -51,27 +52,40 @@ export default function Dividend() {
 
   return (
     <section className="relative min-h-screen py-12 md:py-16 px-4 md:px-8 bg-[#0a0a0a] text-white">
-      {/* 標題區 */}
-      <div className="max-w-6xl mx-auto text-center">
-        <motion.h1
-          initial={{ opacity: 0, y: 10 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-[clamp(28px,4.6vw,44px)] font-semibold tracking-wide"
-        >
-          股份試算（核心公式）
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 6 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.05 }}
-          className="mt-2 text-zinc-300 text-sm md:text-base"
-        >
-          除了返水，股東還能參與「股份分紅」，與整體平台淨利掛勾。
-        </motion.p>
-      </div>
+      {/* 標題區（單一版） */}
+<div className="max-w-6xl mx-auto">
+      {/* Logo 與標題疊加 */}
+  <div className="relative w-full flex justify-center items-center mt-10 mb-4">
+      {/* 背景 Logo：用 BASE_URL 確保 GitHub Pages 子路徑正常 */}
+    <img
+      src={logoUrl} // <= 這裡用你上面宣告的 logoUrl
+      alt="ATAS Logo"
+      className="absolute w-[280px] md:w-[360px] opacity-15 blur-[1px] select-none pointer-events-none"
+    />
+
+      {/* 單一標題（放上層） */}
+    <motion.h1
+      initial={{ opacity: 0, y: 10 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5 }}
+      className="relative z-10 text-[clamp(28px,4.6vw,44px)] font-semibold tracking-wide text-white text-center"
+    >
+      股份試算（核心公式）
+    </motion.h1>
+  </div>
+
+  {/* 副標（只保留一份） */}
+  <motion.p
+    initial={{ opacity: 0, y: 6 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true }}
+    transition={{ duration: 0.5, delay: 0.05 }}
+    className="mt-2 text-zinc-300 text-sm md:text-base text-center"
+  >
+    ATAS 股份分紅模擬器，用以展示平台分潤邏輯與股東收益分配方式。
+  </motion.p>
+</div>
 
       {/* 假設卡片 */}
       <motion.div
