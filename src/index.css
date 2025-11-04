@@ -1,68 +1,95 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+/* -------------------------------------------------
+   Tailwind CSS v4 主樣式
+   ------------------------------------------------- */
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+   @import "tailwindcss";
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
-}
+   /* -------------------------------------------------
+      全域主題設定
+      ------------------------------------------------- */
+   @theme {
+     /* 可根據你需求自行調亮或調暗 */
+     --color-bg: #0a0a0a;
+     --color-text: #ffffff;
+   }
+   
+   /* -------------------------------------------------
+      基礎樣式 (Base Layer)
+      ------------------------------------------------- */
+   @layer base {
+     html, body, #root {
+       height: 100%;
+       background-color: var(--color-bg);
+       color: var(--color-text);
+       font-family: 'Inter', 'Noto Sans TC', system-ui, sans-serif;
+     }
+   
+     /* 讓所有標題文字稍微亮一點 */
+     h1, h2, h3, h4, h5, h6 {
+       color: #ffffff;
+     }
+   
+     /* 錨點 hover 效果 */
+     a {
+       color: #38bdf8;
+       text-decoration: none;
+     }
+     a:hover {
+       text-decoration: underline;
+     }
+   
+     /* input、button、select 預設顏色與外觀 */
+     input, button, select, textarea {
+       background-color: transparent;
+       color: #ffffff;
+     }
+   
+     /* 取消滑鼠點擊時的藍色外框 */
+     *:focus {
+       outline: none;
+     }
+   
+     /* 捲動條細化（可選） */
+     ::-webkit-scrollbar {
+       width: 8px;
+       height: 8px;
+     }
+     ::-webkit-scrollbar-track {
+       background: #111;
+     }
+     ::-webkit-scrollbar-thumb {
+       background-color: #333;
+       border-radius: 4px;
+     }
+   }
+   
+   /* -------------------------------------------------
+      元件層 (Component Layer)
+      ------------------------------------------------- */
+   @layer components {
+     .card {
+       @apply bg-white/10 border border-white/20 rounded-2xl shadow-xl shadow-black/30 p-6;
+     }
+   
+     .title-gradient {
+       @apply bg-gradient-to-r from-emerald-400 to-sky-400 bg-clip-text text-transparent font-bold;
+     }
+   }
+   
+   /* -------------------------------------------------
+      實用層 (Utility Layer)
+      ------------------------------------------------- */
+   @layer utilities {
+     .text-glow {
+       text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+     }
+   
+     .text-glow-green {
+       text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+     }
+   
+     .text-glow-red {
+       text-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+     }
+   }
+   
