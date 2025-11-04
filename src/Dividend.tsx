@@ -94,7 +94,7 @@ export default function Dividend() {
     const major = parseNumber(majorHold);
     const minor = parseNumber(minorHold);
 
-    if (A < 0 || B <= 0 || D <= 0 || major <= 0 || A > B) {
+    if (A <= 0 || B <= 0 || D <= 0 || major <= 0 || A > B) {
       return { total: 0, major: 0, minor: 0, valid: false };
     }
 
@@ -112,42 +112,48 @@ export default function Dividend() {
     <section className="relative min-h-screen py-12 md:py-16 px-4 md:px-8 bg-[#0a0a0a] text-white overflow-hidden">
   
     {/* 背景光暈 + 細噪點層 */}
-    <div aria-hidden
-      className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_40%_at_50%_-10%,rgba(255,255,255,.06),transparent)]"
-    />
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 mix-blend-overlay opacity-[0.08]"
-      style={{
-        backgroundImage: `url(${noiseUrl})`,
-        backgroundRepeat: "repeat",
-        backgroundSize: "256px 256px",
-        backgroundPosition: "0 0",
-      }}
+      className="pointer-events-none absolute inset-0
+             bg-[radial-gradient(80%_60%_at_50%_0%,rgba(255,255,255,.12),transparent)]"
     />
 
+    {/* 噪點層（不混合，改用透明度） */}
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 opacity-10"
+      style={{
+      backgroundImage: `url(${noiseUrl})`,
+      backgroundRepeat: "repeat",
+      backgroundSize: "256px 256px",
+    }}
+    />
       {/* 標題區（單一版） */}
 <div className="max-w-6xl mx-auto">
-      {/* Logo 與標題疊加 */}
-  <div className="relative w-full flex justify-center items-center mt-10 mb-4">
-      {/* 背景 Logo：用 BASE_URL 確保 GitHub Pages 子路徑正常 */}
-    <img
-      src={logoUrl} // <= 這裡用你上面宣告的 logoUrl
-      alt="ATAS Logo"
-      className="absolute w-[280px] md:w-[360px] opacity-[0.15] blur-[1px] select-none pointer-events-none"
-    />
+      {/* Logo 與標題疊加（更穩定） */}
+<div className="relative isolate w-full flex justify-center items-center mt-10 mb-4">
+  {/* 背景 Logo */}
+  <img
+    src={logoUrl}
+    alt=""
+    aria-hidden="true"
+    className="absolute z-0 w-[260px] md:w-[360px] opacity-[0.16] md:blur-[1px] pointer-events-none select-none"
+    style={{ WebkitFilter: 'blur(0px)' }} // iOS 小螢幕避免 blur 問題
+    loading="eager"
+    decoding="sync"
+  />
 
-      {/* 單一標題（放上層） */}
-    <motion.h1
-      initial={{ opacity: 0, y: 10 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
-      className="relative z-10 text-[clamp(28px,4.6vw,44px)] font-semibold tracking-wide text-white text-center"
-    >
-      股份試算（核心公式）
-    </motion.h1>
-  </div>
+  {/* 標題 */}
+  <motion.h1
+    initial={{ opacity: 0, y: 10 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true }}
+    transition={{ duration: 0.5 }}
+    className="relative z-10 text-[clamp(28px,4.6vw,44px)] font-semibold tracking-wide text-white text-center"
+  >
+    股份試算（核心公式）
+  </motion.h1>
+</div>
 
   {/* 副標（只保留一份） */}
   <motion.p
@@ -255,6 +261,15 @@ export default function Dividend() {
         onChange={(e) => setInputB(e.target.value)}
         className="w-full p-3 rounded-xl bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60 outline-none"
       />
+      <p className="mt-1 text-xs text-zinc-400">
+        佔比：{(() => {
+        const A = parseNumber(inputA), B = parseNumber(inputB);
+        if (!B) return "—";
+        const ratio = (A / B) * 100;
+        return isFinite(ratio) ? `${ratio.toFixed(2)}%` : "—";
+        })()}
+      </p>
+
     </div>
 
     <div>
@@ -335,7 +350,26 @@ export default function Dividend() {
 {result.valid ? (
   <p className="text-zinc-400 text-xs mt-3 text-center">
     （檢查：大股東 + 小股東 = 總獲利）
+    <div className="mt-4 flex justify-center">
+  <button
+    onClick={() => {
+      const p = new URLSearchParams({
+        a: inputA, b: inputB, c: inputC, d: inputD,
+        major: majorHold, minor: minorHold,
+      }).toString();
+      const url = `${location.origin}${import.meta.env.BASE_URL}?${p}`;
+      navigator.clipboard.writeText(url).then(() => {
+        alert("✅ 已複製分享連結！");
+      });
+    }}
+    className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/14 border border-white/15"
+  >
+    🔗 複製目前試算連結
+  </button>
+</div>
+
   </p>
+  
 ) : null}
 
 </div>
