@@ -1,8 +1,10 @@
 name: Deploy to GitHub Pages
+
 on:
   push:
     branches: [ "main" ]
 
+# 這兩個權限對 Pages 必須要有
 permissions:
   contents: read
   pages: write
@@ -16,8 +18,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # 關鍵：先配置 Pages
+      - uses: actions/configure-pages@v5
       - run: npm ci
       - run: npm run build
+      # 上傳靜態輸出（Vite 輸出在 dist）
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
@@ -29,5 +34,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # 將上一步的 artifact 發佈到 Pages
       - id: deployment
         uses: actions/deploy-pages@v4
