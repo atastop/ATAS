@@ -348,28 +348,30 @@ export default function Dividend() {
 </div>
 
 {result.valid ? (
-  <p className="text-zinc-400 text-xs mt-3 text-center">
-    （檢查：大股東 + 小股東 = 總獲利）
-    <div className="mt-4 flex justify-center">
-  <button
-    onClick={() => {
-      const p = new URLSearchParams({
-        a: inputA, b: inputB, c: inputC, d: inputD,
-        major: majorHold, minor: minorHold,
-      }).toString();
-      const url = `${location.origin}${import.meta.env.BASE_URL}?${p}`;
-      navigator.clipboard.writeText(url).then(() => {
-        alert("✅ 已複製分享連結！");
-      });
-    }}
-    className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/14 border border-white/15"
-  >
-    🔗 複製目前試算連結
-  </button>
-</div>
+  <>
+    <p className="text-zinc-400 text-xs mt-3 text-center">
+      （檢查：大股東 + 小股東 = 總獲利）
+    </p>
 
-  </p>
-  
+    {/* ←← 移到 p 外面 */}
+    <div className="mt-4 flex justify-center">
+      <button
+        onClick={() => {
+          const p = new URLSearchParams({
+            a: inputA, b: inputB, c: inputC, d: inputD,
+            major: majorHold, minor: minorHold,
+          }).toString();
+          const url = `${location.origin}${import.meta.env.BASE_URL}?${p}`;
+          navigator.clipboard.writeText(url).then(() => {
+            alert("✅ 已複製分享連結！");
+          });
+        }}
+        className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15"
+      >
+        🔗 複製目前試算連結
+      </button>
+    </div>
+  </>
 ) : null}
 
 </div>
