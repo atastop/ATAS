@@ -4,7 +4,7 @@ import { useState } from "react";
 
 export default function Dividend() {
   // ===== 狀態 =====
-  const logoUrl = import.meta.env.BASE_URL + 'atas-logo.png';
+  const logoUrl = import.meta.env.BASE_URL + "atas-logo.png";
   const [inputA, setInputA] = useState("10000000");
   const [inputB, setInputB] = useState("50000000");
   const [inputC, setInputC] = useState("40000000");
@@ -48,10 +48,17 @@ export default function Dividend() {
   const result = calculateProfit();
 
   // ===== 小元件：欄位與數字卡 =====
+ return (
+    <section className="relative min-h-screen py-12 md:py-16 px-4 md:px-8 bg-[#0a0a0a] text-white overflow-hidden">
+  
+    {/* 背景光暈 + 細噪點層 */}
+    <div aria-hidden
+      className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_40%_at_50%_-10%,rgba(255,255,255,.06),transparent)]"
+    />
+    <div aria-hidden
+      className="pointer-events-none absolute inset-0 mix-blend-overlay opacity-[0.03] bg-[url('/noise.png')]"
+    />
 
-
-  return (
-    <section className="relative min-h-screen py-12 md:py-16 px-4 md:px-8 bg-[#0a0a0a] text-white">
       {/* 標題區（單一版） */}
 <div className="max-w-6xl mx-auto">
       {/* Logo 與標題疊加 */}
