@@ -1,14 +1,80 @@
 "use client";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react"; // ⬅️ 多了 useEffect
+
+
+// ===== 小工具：格式化 =====
+const fmt = (n: number, digits = 2) =>
+  new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(n);
+
+// ===== Hook：平滑數字跳動（CountUp）=====
+function useCountUp(target: number, duration = 600) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const start = performance.now();
+    const from = value;
+    const delta = target - from;
+
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / duration);
+      // easeOutCubic
+      const eased = 1 - Math.pow(1 - p, 3);
+      setValue(from + delta * eased);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, duration]);
+
+  return value;
+}
+
+// ===== 元件：結果卡（會微光 + 會跳動）=====
+function StatCard({
+  title,
+  value,
+  colorClass,
+}: {
+  title: string;
+  value: number;
+  colorClass: string; // e.g. "text-emerald-400"
+}) {
+  const animated = useCountUp(value ?? 0, 700);
+
+  return (
+    <motion.div
+      key={title + value}
+      initial={{ boxShadow: "0 0 0 rgba(0,0,0,0)", scale: 1 }}
+      animate={{
+        boxShadow: [
+          "0 0 0 rgba(0,0,0,0)",
+          "0 0 24px rgba(34,197,94,0.12)",
+          "0 0 0 rgba(0,0,0,0)",
+        ],
+        scale: [1, 1.01, 1],
+      }}
+      transition={{ duration: 0.8 }}
+      className="rounded-xl border border-white/10 bg-black/30 p-4 text-center"
+    >
+      <p className="text-sm text-white/70">{title}</p>
+      <p className={`font-mono text-lg mt-1 ${colorClass}`}>{fmt(animated)}</p>
+    </motion.div>
+  );
+}
 
 export default function Dividend() {
   // ===== 狀態 =====
   const logoUrl = import.meta.env.BASE_URL + "atas-logo.png";
+  const noiseUrl = import.meta.env.BASE_URL + "noise.png";
   const [inputA, setInputA] = useState("10000000");
   const [inputB, setInputB] = useState("50000000");
   const [inputC, setInputC] = useState("40000000");
-  const [inputD] = useState("130"); // 固定
+  const inputD = "130"; // 固定
   const [majorHold, setMajorHold] = useState("60");
   const [minorHold, setMinorHold] = useState("0");
 
@@ -19,12 +85,6 @@ export default function Dividend() {
     return isNaN(num) ? 0 : num;
   };
 
-  const formatNumber = (num: number, digits: number = 2) =>
-    new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
-    }).format(num);
-
   // ===== 計算公式 =====
   const calculateProfit = () => {
     const A = parseNumber(inputA);
@@ -34,7 +94,7 @@ export default function Dividend() {
     const major = parseNumber(majorHold);
     const minor = parseNumber(minorHold);
 
-    if (A <= 0 || B <= 0 || D <= 0 || major <= 0 || A > B) {
+    if (A < 0 || B <= 0 || D <= 0 || major <= 0 || A > B) {
       return { total: 0, major: 0, minor: 0, valid: false };
     }
 
@@ -55,8 +115,15 @@ export default function Dividend() {
     <div aria-hidden
       className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_40%_at_50%_-10%,rgba(255,255,255,.06),transparent)]"
     />
-    <div aria-hidden
-      className="pointer-events-none absolute inset-0 mix-blend-overlay opacity-[0.03] bg-[url('/noise.png')]"
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 mix-blend-overlay opacity-[0.08]"
+      style={{
+        backgroundImage: `url(${noiseUrl})`,
+        backgroundRepeat: "repeat",
+        backgroundSize: "256px 256px",
+        backgroundPosition: "0 0",
+      }}
     />
 
       {/* 標題區（單一版） */}
@@ -67,7 +134,7 @@ export default function Dividend() {
     <img
       src={logoUrl} // <= 這裡用你上面宣告的 logoUrl
       alt="ATAS Logo"
-      className="absolute w-[280px] md:w-[360px] opacity-15 blur-[1px] select-none pointer-events-none"
+      className="absolute w-[280px] md:w-[360px] opacity-[0.15] blur-[1px] select-none pointer-events-none"
     />
 
       {/* 單一標題（放上層） */}
@@ -244,38 +311,33 @@ export default function Dividend() {
         onChange={(e) => setMinorHold(e.target.value)}
         className="w-full p-3 rounded-xl bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60 outline-none"
       />
+      {parseNumber(minorHold) > parseNumber(majorHold) && (
+        <p className="mt-1 text-xs text-red-400">小股東持股不可大於大股東持股</p>
+      )}
     </div>
   </form>
 
-  {/* 結果顯示（仍保持三格平均） */}
-  <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-    {result.valid ? (
-      <>
-        <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-center">
-          <p className="text-sm text-white/70">總獲利</p>
-          <p className="text-emerald-400 font-mono text-lg mt-1">{formatNumber(result.total)}</p>
-        </div>
-        <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-center">
-          <p className="text-sm text-white/70">大股東獲利</p>
-          <p className="text-sky-400 font-mono text-lg mt-1">{formatNumber(result.major)}</p>
-        </div>
-        <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-center">
-          <p className="text-sm text-white/70">小股東獲利</p>
-          <p className="text-amber-300 font-mono text-lg mt-1">{formatNumber(result.minor)}</p>
-        </div>
-      </>
-    ) : (
-      <div className="md:col-span-3 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-center text-red-300">
-        ⚠ 無效輸入，請確認 A ≤ B、持股數為正，且 D {">"} 0
-      </div>
-    )}
-  </div>
-
+  {/* 結果顯示（三等分 + 動畫） */}
+<div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
   {result.valid ? (
-    <p className="text-zinc-400 text-xs mt-3 text-center">
-      （檢查：大股東 + 小股東 = 總獲利）
-    </p>
-  ) : null}
+    <>
+      <StatCard title="總獲利" value={result.total} colorClass="text-emerald-400" />
+      <StatCard title="大股東獲利" value={result.major} colorClass="text-sky-400" />
+      <StatCard title="小股東獲利" value={result.minor} colorClass="text-amber-300" />
+    </>
+  ) : (
+    <div className="md:col-span-3 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-center text-red-300">
+      ⚠ 無效輸入，請確認 A ≤ B、持股數為正，且 D {">"} 0
+    </div>
+  )}
+</div>
+
+{result.valid ? (
+  <p className="text-zinc-400 text-xs mt-3 text-center">
+    （檢查：大股東 + 小股東 = 總獲利）
+  </p>
+) : null}
+
 </div>
     </section>
   );
