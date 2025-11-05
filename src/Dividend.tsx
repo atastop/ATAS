@@ -16,6 +16,38 @@ const fmt = (n: number, digits = 2) => {
   return f.format(n);
 };
 
+// ===== 短連結編碼（base36 + ZigZag for negative）=====
+const toZigZag = (n: number) => (n >= 0 ? n * 2 : -n * 2 - 1);
+const fromZigZag = (z: number) => (z % 2 === 0 ? z / 2 : -(z + 1) / 2);
+
+const enc36 = (n: number) => Math.max(0, Math.floor(n)).toString(36);
+const dec36 = (s: string) => Number.parseInt(s, 36) || 0;
+
+type ShareState = {
+  a: number; b: number; c: number; d: number; major: number; minor: number;
+};
+
+// v1: a.b.c.d.mj.mn （全部 base36，c 用 ZigZag）
+const encodeHashV1 = (s: ShareState) =>
+  `v1:${[enc36(s.a), enc36(s.b), enc36(toZigZag(s.c)), enc36(s.d), enc36(s.major), enc36(s.minor)].join(".")}`;
+
+const tryDecodeHash = (hash: string): ShareState | null => {
+  const raw = hash.replace(/^#/, "");
+  if (!raw.startsWith("v1:")) return null;
+  const parts = raw.slice(3).split(".");
+  if (parts.length < 6) return null;
+  const [a, b, cZ, d, mj, mn] = parts;
+  return {
+    a: dec36(a),
+    b: dec36(b),
+    c: fromZigZag(dec36(cZ)),
+    d: dec36(d),
+    major: dec36(mj),
+    minor: dec36(mn),
+  };
+};
+
+
 // ===== Hook：平滑數字跳動（CountUp）=====
 function useCountUp(target: number, duration = 600) {
   const mounted = useRef(false);
@@ -240,20 +272,32 @@ export default function Dividend() {
 
   // ===== 初始：如果網址帶參數就還原狀態 =====
   useEffect(() => {
+    // 1) 先嘗試 hash 短連結
+    const h = tryDecodeHash(location.hash);
+    if (h) {
+      setInputA(String(h.a));
+      setInputB(String(h.b));
+      setInputC(String(h.c));
+      // 若你 D 固定 130，可忽略覆蓋；否則保留：
+      // setInputD(String(h.d)); // 你目前是常數，不用
+      setMajorHold(String(h.major));
+      setMinorHold(String(h.minor));
+      return;
+    }
+    // 2) 回退：相容舊 query
     const q = new URLSearchParams(location.search);
     const a = q.get("a");
     const b = q.get("b");
     const c = q.get("c");
     const major = q.get("major");
     const minor = q.get("minor");
-
+  
     if (a) setInputA(a);
     if (b) setInputB(b);
     if (c) setInputC(c);
-    // d 是固定 130（inputD 常數），不覆蓋
     if (major) setMajorHold(major);
     if (minor) setMinorHold(minor);
-  }, []);
+  }, []);  
 
   // ===== Render =====
   return (
@@ -718,25 +762,26 @@ export default function Dividend() {
             <div className="mt-4 flex justify-center">
               <button
                 onClick={() => {
-                  const p = new URLSearchParams({
-                    a: inputA,
-                    b: inputB,
-                    c: inputC,
-                    d: inputD,
-                    major: majorHold,
-                    minor: minorHold,
-                  }).toString();
-                  const url = `${location.origin}${import.meta.env.BASE_URL}?${p}`;
-                  navigator.clipboard.writeText(url).then(
+                  const s = {
+                    a: parseNumber(inputA),
+                    b: parseNumber(inputB),
+                    c: parseNumber(inputC),
+                    d: parseNumber(inputD),
+                    major: parseNumber(majorHold),
+                    minor: parseNumber(minorHold),
+                  };
+                  const short = `${location.origin}${import.meta.env.BASE_URL}#${encodeHashV1(s)}`;
+                  navigator.clipboard.writeText(short).then(
                     () => {
                       setCopied(true);
                       setTimeout(() => setCopied(false), 2000);
                     },
                     () => {
-                      window.prompt("複製這個連結：", url);
+                      window.prompt("複製這個連結：", short);
                     }
                   );
                 }}
+                
                 className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15"
               >
                 🔗 複製目前試算連結
