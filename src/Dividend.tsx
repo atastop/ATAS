@@ -97,6 +97,8 @@ export default function Dividend() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  
+
 
     // 把目前狀態做成網址參數字串
   const buildQueryString = () =>
@@ -180,6 +182,22 @@ useEffect(() => {
   const r = (A / B) * 100;
   return Math.max(0, Math.min(100, r));
 }, [inputA, inputB]);
+
+// ===== 百分比（滑桿視覺用）=====
+const dInt    = toInt(inputD);
+const majorInt = toInt(majorHold);
+const minorInt = toInt(minorHold);
+
+const majorPct = useMemo(() => {
+  if (!dInt) return 0;
+  return Math.max(0, Math.min(100, (majorInt / dInt) * 100));
+}, [majorInt, dInt]);
+
+// 小股東的視覺百分比，以「占大股東持股的比例」呈現
+const minorPct = useMemo(() => {
+  if (!majorInt) return 0;
+  return Math.max(0, Math.min(100, (minorInt / majorInt) * 100));
+}, [minorInt, majorInt]);
 
 
   // ===== 計算公式 =====
@@ -492,35 +510,98 @@ useEffect(() => {
               : "border-white/20"
           }`}
       />
+      {/* 滑桿（以 D 為上限） */}
+<div className="mt-3">
+  <input
+    type="range"
+    min={0}
+    max={dInt || 130}
+    step={1}
+    value={majorInt}
+    onChange={(e) => setMajorHold(e.target.value)}
+    className="w-full appearance-none bg-transparent cursor-pointer"
+    aria-label="大股東持股滑桿"
+  />
+  {/* 自訂視覺底條 + 進度條（不依賴原生 range 樣式，跨瀏覽器更穩） */}
+  <div className="mt-1 h-2.5 w-full rounded-full bg-white/[0.08] border border-white/10 overflow-hidden">
+    <div
+      className="h-full bg-gradient-to-r from-emerald-400 to-sky-400 transition-all duration-500 ease-out"
+      style={{ width: `${majorPct}%` }}
+    />
+  </div>
+  <div className="mt-1 text-[11px] text-zinc-400">
+    目前：{majorInt} 股（佔總股份 {majorPct.toFixed(1)}%）
+  </div>
+</div>
+      </div>
+
+      <div>
+  <label className="block mb-2">
+    <span className="font-semibold">小股東持股</span>
+    <span className="text-xs text-zinc-400 ml-2">從大股東持股中分出的小股東股數</span>
+  </label>
+
+  {/* 文字輸入框（原有邏輯保留） */}
+  <input
+    type="number"
+    value={minorHold}
+    onChange={(e) => setMinorHold(String(toInt(e.target.value)))}
+    onFocus={() => setFocusedField("minor")}
+    onBlur={() => setFocusedField(null)}
+    className={`w-full p-3 rounded-xl bg-zinc-900 text-white border outline-none transition-all duration-300
+      ${(() => {
+        const c = validateMinorHold();
+        if (!c.valid) return focusedField === "minor"
+          ? "border-red-400/80 ring-2 ring-red-400/30"
+          : "border-red-400/60";
+        if (c.warn)  return focusedField === "minor"
+          ? "border-amber-400/80 ring-2 ring-amber-400/30"
+          : "border-amber-400/50";
+        return focusedField === "minor"
+          ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
+          : "border-white/20";
+      })()}`}
+/>
+
+  {/* 👇 新增：滑桿 + 視覺進度條 */}
+  <div className="mt-3">
+    {/* 滑桿控制（0 ~ 大股東持股） */}
+    <input
+      type="range"
+      min={0}
+      max={parseInt(majorHold) || 0}
+      step={1}
+      value={Math.min(parseInt(minorHold) || 0, parseInt(majorHold) || 0)} // 避免超出
+      onChange={(e) => setMinorHold(e.target.value)}
+      className="w-full appearance-none bg-transparent cursor-pointer"
+      aria-label="小股東持股滑桿"
+    />
+
+    {/* 自訂底條 + 動態進度條（顏色會隨警示變化） */}
+    <div className="mt-1 h-2.5 w-full rounded-full overflow-hidden border 
+                    border-white/10 bg-white/[0.06]">
+      <div
+        className={`h-full transition-all duration-500 ease-out ${
+          (() => {
+            const c = validateMinorHold();
+            if (!c.valid) return "bg-red-400";
+            if (c.warn) return "bg-amber-400";
+            return "bg-gradient-to-r from-emerald-400 to-sky-400";
+          })()
+        }`}
+        style={{ width: `${minorPct}%` }}
+      />
     </div>
 
-    <div>
-      <label className="block mb-2">
-        <span className="font-semibold">小股東持股</span>
-        <span className="text-xs text-zinc-400 ml-2">從大股東持股中分出的小股東股數</span>
-      </label>
-      <input
-        type="number"
-        value={minorHold}
-        onChange={(e) => setMinorHold(String(toInt(e.target.value)))}
-        onFocus={() => setFocusedField("minor")}
-        onBlur={() => setFocusedField(null)}
-        className={`w-full p-3 rounded-xl bg-zinc-900 text-white border outline-none transition-all duration-300
-          ${(() => {
-            const c = validateMinorHold();
-            if (!c.valid) return focusedField === "minor"
-              ? "border-red-400/80 ring-2 ring-red-400/30"
-              : "border-red-400/60";
-            if (c.warn)  return focusedField === "minor"
-              ? "border-amber-400/80 ring-2 ring-amber-400/30"
-              : "border-amber-400/50";
-            return focusedField === "minor"
-              ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
-              : "border-white/20";
-          })()}`}
-      />
+    <div className="mt-1 text-[11px] text-zinc-400">
+      目前：{minorHold} 股（佔大股東 {(
+        ((parseInt(minorHold) || 0) / (parseInt(majorHold) || 1)) * 100
+      ).toFixed(1)}%）
+    </div>
+  </div>
 
-        {(() => {
+  {/* 警告訊息（原有邏輯保留） */}
+  {(() => {
     const check = validateMinorHold();
     if (!check.valid) {
       return <p className="mt-1 text-xs text-red-400">{check.message}</p>;
@@ -530,7 +611,8 @@ useEffect(() => {
     }
     return null;
   })()}
-    </div>
+</div>
+    
   </form>
 
   {/* 快速操作 */}
