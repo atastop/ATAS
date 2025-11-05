@@ -2,12 +2,20 @@
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo, useRef } from "react";
 
-// ===== 小工具：格式化 =====
-const fmt = (n: number, digits = 2) =>
-  new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(n);
+// ===== 小工具：格式化（快取 NumberFormat，減少重建）=====
+const _formatters = new Map<number, Intl.NumberFormat>();
+const fmt = (n: number, digits = 2) => {
+  let f = _formatters.get(digits);
+  if (!f) {
+    f = new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
+    _formatters.set(digits, f);
+  }
+  return f.format(n);
+};
+
 
 // ===== Hook：平滑數字跳動（CountUp）===== 
 function useCountUp(target: number, duration = 600) {
@@ -121,9 +129,32 @@ export default function Dividend() {
   return { valid: true, warn: false, message: "" };
 };
   
+// ===== 輸入淨化與夾限 =====
+  const toInt = (str: string) => {
+  const n = Math.floor(parseNumber(str));
+  return isNaN(n) ? 0 : Math.max(0, n);
+};
+  const toIntAllowNegative = (str: string) => {
+  const n = Math.floor(parseNumber(str));
+  return isNaN(n) ? 0 : n; // 可為負
+};
+// 大股東不可超過 D
+useEffect(() => {
+  const major = toInt(majorHold);
+  const d = toInt(inputD);
+  if (major > d) setMajorHold(String(d));
+}, [majorHold, inputD]);
+
+// 小股東不可超過大股東
+useEffect(() => {
+  const minor = toInt(minorHold);
+  const major = toInt(majorHold);
+  if (minor > major) setMinorHold(String(major));
+}, [minorHold, majorHold]);
+
 
   // ===== 工具 =====
-  const parseNumber = (str: string) => {
+    const parseNumber = (str: string) => {
     const cleaned = (str || "").replace(/,/g, "");
     const num = parseFloat(cleaned);
     return isNaN(num) ? 0 : num;
@@ -306,7 +337,7 @@ useEffect(() => {
       <input
         type="number"
         value={inputA}
-        onChange={(e) => setInputA(e.target.value)}
+        onChange={(e) => setInputA(String(toInt(e.target.value)))}
         className="w-full p-3 rounded-xl bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60 outline-none"
       />
       <p className="mt-1 text-xs text-zinc-400">
@@ -322,7 +353,7 @@ useEffect(() => {
       <input
         type="number"
         value={inputB}
-        onChange={(e) => setInputB(e.target.value)}
+        onChange={(e) => setInputB(String(toInt(e.target.value)))}
         className="w-full p-3 rounded-xl bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60 outline-none"
       />
       <p className="mt-1 text-xs text-zinc-400">
@@ -346,8 +377,7 @@ useEffect(() => {
       <input
         type="number"
         value={inputC}
-        
-        onChange={(e) => setInputC(e.target.value)}
+        onChange={(e) => setInputC(String(toIntAllowNegative(e.target.value)))}
         className={`w-full p-3 rounded-xl outline-none transition placeholder:text-zinc-500 ${
           parseNumber(inputC) < 0
           
@@ -386,7 +416,7 @@ useEffect(() => {
       <input
         type="number"
         value={majorHold}
-        onChange={(e) => setMajorHold(e.target.value)}
+        onChange={(e) => setMajorHold(String(toInt(e.target.value)))}
         className="w-full p-3 rounded-xl bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60 outline-none"
       />
     </div>
@@ -399,7 +429,7 @@ useEffect(() => {
       <input
         type="number"
         value={minorHold}
-        onChange={(e) => setMinorHold(e.target.value)}
+        onChange={(e) => setMinorHold(String(toInt(e.target.value)))}
         className="w-full p-3 rounded-xl bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60 outline-none"
       />
 
@@ -415,6 +445,42 @@ useEffect(() => {
   })()}
     </div>
   </form>
+
+  {/* 快速操作 */}
+<div className="mt-6 flex flex-wrap items-center gap-3">
+  <button
+    type="button"
+    onClick={() => {
+      setInputA("10000000");
+      setInputB("50000000");
+      setInputC("40000000");
+      // inputD 固定 130，不動
+      setMajorHold("60");
+      setMinorHold("0");
+    }}
+    className="px-3 py-2 rounded-lg border border-white/15 bg-white/10 hover:bg-white/15"
+  >
+    ↺ 重置為示範值
+  </button>
+
+  <div className="text-xs text-zinc-400 ml-2">常用預設：</div>
+  <div className="flex flex-wrap gap-2">
+    {[
+      { label: "60/55", major: "60", minor: "55" },
+      { label: "60/50", major: "60", minor: "50" },
+      { label: "90/80", major: "90", minor: "80" },
+    ].map((p) => (
+      <button
+        key={p.label}
+        type="button"
+        onClick={() => { setMajorHold(p.major); setMinorHold(p.minor); }}
+        className="px-2.5 py-1.5 rounded-md border border-white/15 bg-white/[0.06] hover:bg-white/[0.12] text-xs"
+      >
+        {p.label}
+      </button>
+    ))}
+  </div>
+</div>
 
   {/* 結果顯示（三等分 + 動畫） */}
 <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
