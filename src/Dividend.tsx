@@ -95,6 +95,8 @@ export default function Dividend() {
   const [majorHold, setMajorHold] = useState("60");
   const [minorHold, setMinorHold] = useState("0");
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
 
     // 把目前狀態做成網址參數字串
   const buildQueryString = () =>
@@ -164,7 +166,7 @@ useEffect(() => {
 
 
   // ===== 工具 =====
-    const parseNumber = (str: string) => {
+  const parseNumber = (str: string) => {
     const cleaned = (str || "").replace(/,/g, "");
     const num = parseFloat(cleaned);
     return isNaN(num) ? 0 : num;
@@ -598,7 +600,8 @@ useEffect(() => {
           }).toString();
           const url = `${location.origin}${import.meta.env.BASE_URL}?${p}`;
           navigator.clipboard.writeText(url).then(() => {
-            alert("✅ 已複製分享連結！");
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
           });
         }}
         className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15"
@@ -610,6 +613,14 @@ useEffect(() => {
 ) : null}
 
 </div>
+    {copied && (
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg
+                      bg-emerald-500/90 text-white text-sm shadow-lg shadow-emerald-500/30
+                      animate-in fade-in zoom-in duration-200">
+        ✅ 已複製分享連結
+      </div>
+    )}
+
     </section>
   );
 }
