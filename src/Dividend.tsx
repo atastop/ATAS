@@ -42,38 +42,47 @@ function useCountUp(target: number, duration = 600) {
   return value;
 }
 
-// ===== 元件：結果卡（會微光 + 會跳動）=====
-function StatCard({
-  title,
-  value,
-  colorClass,
-}: {
-  title: string;
-  value: number;
-  colorClass: string; // e.g. "text-emerald-400"
-}) {
-  const animated = useCountUp(value ?? 0, 700);
+  // ===== 元件：結果卡（值為負時轉紅色）=====
+  function StatCard({
+    title,
+    value,
+    colorClass,
+  }: {
+    title: string;
+    value: number;
+    colorClass: string; // e.g. "text-emerald-400"
+  }) {
+    const animated = useCountUp(value ?? 0, 700);
+    const isNegative = value < 0;
 
-  return (
-    <motion.div
-      key={title + value}
-      initial={{ boxShadow: "0 0 0 rgba(0,0,0,0)", scale: 1 }}
-      animate={{
-        boxShadow: [
-          "0 0 0 rgba(0,0,0,0)",
-          "0 0 24px rgba(34,197,94,0.12)",
-          "0 0 0 rgba(0,0,0,0)",
-        ],
-        scale: [1, 1.01, 1],
-      }}
-      transition={{ duration: 0.8 }}
-      className="rounded-xl border border-white/10 bg-background-black p-4 text-center"
-    >
-      <p className="text-sm text-text-white-light">{title}</p>
-      <p className={`font-mono text-lg mt-1 ${colorClass}`}>{fmt(animated)}</p>
-    </motion.div>
-  );
-}
+    const boxClass =
+      isNegative
+        ? "border-red-400/40 bg-red-500/10"
+        : "border-white/10 bg-background-black";
+
+    const valueClass =
+      isNegative ? "text-red-400" : colorClass;
+
+    return (
+      <motion.div
+        key={title + value}
+        initial={{ boxShadow: "0 0 0 rgba(0,0,0,0)", scale: 1 }}
+        animate={{
+          boxShadow: [
+            "0 0 0 rgba(0,0,0,0)",
+            isNegative ? "0 0 24px rgba(248,113,113,0.20)" : "0 0 24px rgba(34,197,94,0.12)",
+            "0 0 0 rgba(0,0,0,0)",
+          ],
+          scale: [1, 1.01, 1],
+        }}
+        transition={{ duration: 0.8 }}
+        className={`rounded-xl border p-4 text-center transition-colors ${boxClass}`}
+      >
+        <p className="text-sm text-text-white-light">{title}</p>
+        <p className={`font-mono text-lg mt-1 ${valueClass}`}>{fmt(animated)}</p>
+      </motion.div>
+    );
+  }
 
 export default function Dividend() {
   // ===== 狀態 =====
@@ -85,6 +94,7 @@ export default function Dividend() {
   const inputD = "130"; // 固定
   const [majorHold, setMajorHold] = useState("60");
   const [minorHold, setMinorHold] = useState("0");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
     // 把目前狀態做成網址參數字串
   const buildQueryString = () =>
@@ -159,6 +169,16 @@ useEffect(() => {
     const num = parseFloat(cleaned);
     return isNaN(num) ? 0 : num;
   };
+
+  // ===== 佔比（A/B）計算，0~100 夾限 =====
+  const ratioAB = useMemo(() => {
+  const A = parseNumber(inputA);
+  const B = parseNumber(inputB);
+  if (B <= 0) return 0;
+  const r = (A / B) * 100;
+  return Math.max(0, Math.min(100, r));
+}, [inputA, inputB]);
+
 
   // ===== 計算公式 =====
     const calculateProfit = () => {
@@ -334,12 +354,20 @@ useEffect(() => {
         <span className="font-semibold">A（股東營業額）</span>
         <span className="text-xs text-zinc-400 ml-2">整條線整體的打碼量</span>
       </label>
-      <input
-        type="number"
-        value={inputA}
-        onChange={(e) => setInputA(String(toInt(e.target.value)))}
-        className="w-full p-3 rounded-xl bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60 outline-none"
-      />
+          <input
+            type="number"
+            value={inputA}
+            onChange={(e) => setInputA(e.target.value)}
+            onFocus={() => setFocusedField("A")}
+            onBlur={() => setFocusedField(null)}
+            className={`w-full p-3 rounded-xl bg-zinc-900 text-white border outline-none transition-all duration-300
+              ${
+                focusedField === "A"
+                  ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
+                  : "border-white/20"
+              }`}
+          />
+
       <p className="mt-1 text-xs text-zinc-400">
       預覽：{fmt(parseNumber(inputA), 0)}
       </p>
@@ -353,20 +381,41 @@ useEffect(() => {
       <input
         type="number"
         value={inputB}
-        onChange={(e) => setInputB(String(toInt(e.target.value)))}
-        className="w-full p-3 rounded-xl bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60 outline-none"
+        onChange={(e) => setInputB(e.target.value)}
+        onFocus={() => setFocusedField("B")}
+        onBlur={() => setFocusedField(null)}
+        className={`w-full p-3 rounded-xl bg-zinc-900 text-white border outline-none transition-all duration-300
+          ${
+            focusedField === "B"
+              ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
+              : "border-white/20"
+          }`}
       />
+
       <p className="mt-1 text-xs text-zinc-400">
-        佔比：{(() => {
-        const A = parseNumber(inputA), B = parseNumber(inputB);
-        if (!B) return "—";
-        const ratio = (A / B) * 100;
-        return isFinite(ratio) ? `${ratio.toFixed(2)}%` : "—";
-        })()}
+      預覽：{fmt(parseNumber(inputB), 0)}
       </p>
+
       {parseNumber(inputA) > parseNumber(inputB) && (
       <p className="mt-1 text-xs text-red-400">⚠ A 不能大於 B，請確認數值。</p>
       )}
+    {/* 進度條（A/B） */}
+    <div className="mt-2">
+      <div className="h-2.5 w-full rounded-full bg-white/[0.06] overflow-hidden border border-white/10">
+        <div
+          className="h-full bg-gradient-to-r from-emerald-400 to-sky-400 transition-all duration-700 ease-out"
+          style={{ width: `${ratioAB}%` }}
+          aria-label="A/B 佔比進度條"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Number.isFinite(ratioAB) ? Number(ratioAB.toFixed(2)) : 0}
+          role="progressbar"
+        />
+      </div>
+      <div className="mt-1 text-[11px] text-zinc-400">
+        佔比：{ratioAB.toFixed(2)}%
+        </div>
+      </div>
     </div>
 
     <div>
@@ -375,16 +424,31 @@ useEffect(() => {
         <span className="text-xs text-zinc-400 ml-2">整個 ATAS 所有輸贏計算後的淨利潤</span>
       </label>
       <input
-        type="number"
+        type="text" // 改成 text，允許「-」開頭
         value={inputC}
-        onChange={(e) => setInputC(String(toIntAllowNegative(e.target.value)))}
-        className={`w-full p-3 rounded-xl outline-none transition placeholder:text-zinc-500 ${
-          parseNumber(inputC) < 0
-          
-            ? "bg-zinc-900 text-red-400 border border-red-400/40 focus:ring-2 focus:ring-red-500/60"
-            : "bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60"
-        }`}
+        onChange={(e) => {
+          const val = e.target.value.trim();
+
+          // ✅ 若只輸入 "-" 或空白，暫時保留不轉數字
+          if (val === "" || val === "-") {
+            setInputC(val);
+            return;
+          }
+
+          // ✅ 其他情況才轉為數字
+          setInputC(String(toIntAllowNegative(val)));
+        }}
+        onFocus={() => setFocusedField("C")}
+        onBlur={() => setFocusedField(null)}
+        className={`w-full p-3 rounded-xl bg-zinc-900 text-white border outline-none transition-all duration-300
+          ${
+            focusedField === "C"
+              ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
+              : "border-white/20"
+          }`}
       />
+
+
       <p className="mt-1 text-xs text-zinc-400">
       預覽：{fmt(parseNumber(inputC), 0)}
       </p>
@@ -417,7 +481,14 @@ useEffect(() => {
         type="number"
         value={majorHold}
         onChange={(e) => setMajorHold(String(toInt(e.target.value)))}
-        className="w-full p-3 rounded-xl bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60 outline-none"
+        onFocus={() => setFocusedField("major")}
+        onBlur={() => setFocusedField(null)}
+        className={`w-full p-3 rounded-xl bg-zinc-900 text-white border outline-none transition-all duration-300
+          ${
+            focusedField === "major"
+              ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
+              : "border-white/20"
+          }`}
       />
     </div>
 
@@ -430,7 +501,21 @@ useEffect(() => {
         type="number"
         value={minorHold}
         onChange={(e) => setMinorHold(String(toInt(e.target.value)))}
-        className="w-full p-3 rounded-xl bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60 outline-none"
+        onFocus={() => setFocusedField("minor")}
+        onBlur={() => setFocusedField(null)}
+        className={`w-full p-3 rounded-xl bg-zinc-900 text-white border outline-none transition-all duration-300
+          ${(() => {
+            const c = validateMinorHold();
+            if (!c.valid) return focusedField === "minor"
+              ? "border-red-400/80 ring-2 ring-red-400/30"
+              : "border-red-400/60";
+            if (c.warn)  return focusedField === "minor"
+              ? "border-amber-400/80 ring-2 ring-amber-400/30"
+              : "border-amber-400/50";
+            return focusedField === "minor"
+              ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
+              : "border-white/20";
+          })()}`}
       />
 
         {(() => {
