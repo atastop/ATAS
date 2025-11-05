@@ -10,26 +10,27 @@ const fmt = (n: number, digits = 2) =>
     maximumFractionDigits: digits,
   }).format(n);
 
-// ===== Hook：平滑數字跳動（CountUp）=====
+// ===== Hook：平滑數字跳動（CountUp）===== 
 function useCountUp(target: number, duration = 600) {
   const [value, setValue] = useState(0);
-  useEffect(() => {
-    let raf = 0;
-    const start = performance.now();
-    const from = value;
-    const delta = target - from;
 
-    const tick = (t: number) => {
-      const p = Math.min(1, (t - start) / duration);
-      // easeOutCubic
-      const eased = 1 - Math.pow(1 - p, 3);
-      setValue(from + delta * eased);
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target, duration]);
+  useEffect(() => {
+    const from = value; // 使用當前 value 作為初始數字
+    const delta = target - from; // 目標數字減去初始數字，得到變化量
+    const startTime = performance.now();
+    
+    const intervalId = setInterval(() => {
+      const timeElapsed = performance.now() - startTime;
+      if (timeElapsed < duration) {
+        setValue(from + (delta * (timeElapsed / duration))); // 按比例更新數字
+      } else {
+        setValue(target); // 當動畫完成後，直接顯示目標數字
+        clearInterval(intervalId); // 清除定時器
+      }
+    }, 16); // 每 16 毫秒更新一次
+    
+    return () => clearInterval(intervalId);  // 結束時清除 interval
+  }, [target, duration]); // 監聽 target 和 duration 變化
 
   return value;
 }
@@ -59,9 +60,9 @@ function StatCard({
         scale: [1, 1.01, 1],
       }}
       transition={{ duration: 0.8 }}
-      className="rounded-xl border border-white/10 bg-black/30 p-4 text-center"
+      className="rounded-xl border border-white/10 bg-background-black p-4 text-center"
     >
-      <p className="text-sm text-white/70">{title}</p>
+      <p className="text-sm text-text-white-light">{title}</p>
       <p className={`font-mono text-lg mt-1 ${colorClass}`}>{fmt(animated)}</p>
     </motion.div>
   );
@@ -78,6 +79,25 @@ export default function Dividend() {
   const [majorHold, setMajorHold] = useState("60");
   const [minorHold, setMinorHold] = useState("0");
 
+  // ===== 業務設定（可調）=====
+const MIN_RESERVE = 5; // 大股東至少需保留的股數（以後改這裡就好）
+
+
+  // 驗證小股東持股邏輯
+    const validateMinorHold = () => {
+    const major = parseNumber(majorHold);
+    const minor = parseNumber(minorHold);
+  
+    if (minor > major) {
+      return { valid: false, message: "小股東持股不可大於大股東持股" };
+    } else if (major - minor < MIN_RESERVE && minor > 0) {
+      return { valid: true, warn: true, message: `⚠ 大股東需保留至少 ${MIN_RESERVE} 股` };
+    } else {
+      return { valid: true, warn: false, message: "" };
+    }
+  };
+  
+
   // ===== 工具 =====
   const parseNumber = (str: string) => {
     const cleaned = (str || "").replace(/,/g, "");
@@ -86,7 +106,7 @@ export default function Dividend() {
   };
 
   // ===== 計算公式 =====
-  const calculateProfit = () => {
+    const calculateProfit = () => {
     const A = parseNumber(inputA);
     const B = parseNumber(inputB);
     const C = parseNumber(inputC);
@@ -106,6 +126,23 @@ export default function Dividend() {
   };
 
   const result = calculateProfit();
+
+  // ===== 初始：如果網址帶參數就還原狀態 =====
+useEffect(() => {
+  const q = new URLSearchParams(location.search);
+  const a = q.get("a"); 
+  const b = q.get("b"); 
+  const c = q.get("c");
+  const major = q.get("major"); 
+  const minor = q.get("minor");
+
+  if (a) setInputA(a);
+  if (b) setInputB(b);
+  if (c) setInputC(c);
+  // d 是固定 130（inputD 常數），不覆蓋
+  if (major) setMajorHold(major);
+  if (minor) setMinorHold(minor);
+}, []);
 
   // ===== 小元件：欄位與數字卡 =====
  return (
@@ -222,7 +259,7 @@ export default function Dividend() {
 
       {/* 公式展示 */}
       <div className="max-w-6xl mx-auto text-center mt-10 md:mt-12">
-        <p className="text-lg md:text-xl text-white/85 font-medium tracking-wider">A ÷ B × C ÷ D × E = F</p>
+      <p className="text-lg md:text-xl text-white/[0.85] font-medium tracking-wider">A ÷ B × C ÷ D × E = F</p>
         <p className="mt-4 text-[17px] md:text-[20px] font-semibold tracking-wide">
           <span className="text-orange-400">10,000,000</span> ÷{" "}
           <span className="text-red-400">50,000,000</span> ×{" "}
@@ -233,7 +270,7 @@ export default function Dividend() {
       </div>
 
 {/* 表單卡片（雙欄對齊版） */}
-<div className="max-w-5xl mx-auto mt-10 md:mt-12 rounded-2xl border border-white/15 bg-white/8 backdrop-blur-sm shadow-xl shadow-black/30 p-6 md:p-8">
+<div className="max-w-5xl mx-auto mt-10 md:mt-12 rounded-2xl border border-white/15 bg-white/[0.08] backdrop-blur-sm shadow-xl shadow-black/30 p-6 md:p-8">
   <h3 className="text-center text-2xl md:text-3xl font-semibold mb-6">股東獲利試算</h3>
 
   <form onSubmit={(e) => e.preventDefault()} className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -269,7 +306,9 @@ export default function Dividend() {
         return isFinite(ratio) ? `${ratio.toFixed(2)}%` : "—";
         })()}
       </p>
-
+      {parseNumber(inputA) > parseNumber(inputB) && (
+      <p className="mt-1 text-xs text-red-400">⚠ A 不能大於 B，請確認數值。</p>
+      )}
     </div>
 
     <div>
@@ -280,13 +319,19 @@ export default function Dividend() {
       <input
         type="number"
         value={inputC}
+        
         onChange={(e) => setInputC(e.target.value)}
         className={`w-full p-3 rounded-xl outline-none transition placeholder:text-zinc-500 ${
           parseNumber(inputC) < 0
+          
             ? "bg-zinc-900 text-red-400 border border-red-400/40 focus:ring-2 focus:ring-red-500/60"
             : "bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60"
         }`}
       />
+      <p className="mt-1 text-xs text-zinc-400">
+        提醒：C 可為負數（整體輸贏後的淨利），為負時卡片數字會跟著變動。
+      </p>
+
     </div>
 
     <div>
@@ -326,9 +371,16 @@ export default function Dividend() {
         onChange={(e) => setMinorHold(e.target.value)}
         className="w-full p-3 rounded-xl bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60 outline-none"
       />
-      {parseNumber(minorHold) > parseNumber(majorHold) && (
-        <p className="mt-1 text-xs text-red-400">小股東持股不可大於大股東持股</p>
-      )}
+      {(() => {
+      const check = validateMinorHold();
+      if (!check.valid) {
+      return <p className="mt-1 text-xs text-red-400">{check.message}</p>;
+      }
+      if (check.warn) {
+      return <p className="mt-1 text-xs text-amber-400">{check.message}</p>;
+      }
+      return null;
+      })()}
     </div>
   </form>
 
