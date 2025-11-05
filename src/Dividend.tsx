@@ -18,25 +18,33 @@ const fmt = (n: number, digits = 2) => {
 
 // ===== Hook：平滑數字跳動（CountUp）=====
 function useCountUp(target: number, duration = 600) {
-  const [value, setValue] = useState(0);
+  const mounted = useRef(false);
+  const [value, setValue] = useState(target); // 首次直接為目標
 
   useEffect(() => {
+    // 第一次掛載不播動畫
+    if (!mounted.current) {
+      mounted.current = true;
+      setValue(target);
+      return;
+    }
+
     const from = value;
     const delta = target - from;
     const startTime = performance.now();
 
-    const intervalId = setInterval(() => {
+    const intervalId = window.setInterval(() => {
       const timeElapsed = performance.now() - startTime;
       if (timeElapsed < duration) {
         setValue(from + delta * (timeElapsed / duration));
       } else {
         setValue(target);
-        clearInterval(intervalId);
+        window.clearInterval(intervalId);
       }
     }, 16);
 
-    return () => clearInterval(intervalId);
-  }, [target, duration]);
+    return () => window.clearInterval(intervalId);
+  }, [target, duration]); // 不依賴 value，避免重置動畫
 
   return value;
 }
@@ -60,6 +68,9 @@ function StatCard({
 
   const valueClass = isNegative ? "text-red-400" : colorClass;
 
+  // 正目標時不顯示負過渡值；負目標時不顯示正過渡值
+  const safeAnimated = value >= 0 ? Math.max(0, animated) : Math.min(0, animated);
+
   return (
     <motion.div
       key={title + value}
@@ -78,7 +89,7 @@ function StatCard({
       className={`rounded-xl border p-4 text-center transition-colors ${boxClass}`}
     >
       <p className="text-sm text-text-white-light">{title}</p>
-      <p className={`font-mono text-lg mt-1 ${valueClass}`}>{fmt(animated)}</p>
+      <p className={`font-mono text-lg mt-1 ${valueClass}`}>{fmt(safeAnimated)}</p>
     </motion.div>
   );
 }
@@ -381,6 +392,7 @@ export default function Dividend() {
             </label>
             <input
               type="number"
+              onWheel={(e) => (e.target as HTMLElement).blur()}
               value={inputA}
               onChange={(e) => setInputA(e.target.value)}
               onFocus={() => setFocusedField("A")}
@@ -402,12 +414,15 @@ export default function Dividend() {
             </label>
             <input
               type="number"
+              onWheel={(e) => (e.target as HTMLElement).blur()}
               value={inputB}
               onChange={(e) => setInputB(e.target.value)}
               onFocus={() => setFocusedField("B")}
               onBlur={() => setFocusedField(null)}
               className={`w-full p-3 rounded-xl bg-zinc-900 text-white border outline-none transition-all duration-300 ${
-                focusedField === "B"
+                parseNumber(inputA) > parseNumber(inputB)
+                  ? "border-red-400/70 ring-2 ring-red-400/30"
+                  : focusedField === "B"
                   ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
                   : "border-white/20"
               }`}
@@ -434,7 +449,7 @@ export default function Dividend() {
                 />
               </div>
               <div className="mt-1 text-[11px] text-zinc-400">
-                佔比：{ratioAB.toFixed(2)}%
+                佔比：{fmt(ratioAB, 2)}%
               </div>
             </div>
           </div>
@@ -458,7 +473,7 @@ export default function Dividend() {
               }}
               onFocus={() => setFocusedField("C")}
               onBlur={() => setFocusedField(null)}
-              className={`w-full p-3 rounded-xl bg-zinc-900 text-white border outline-none transition-all duration-300 ${
+              className={`w-full p-3 rounded-xl bg-zinc-900 text白 border outline-none transition-all duration-300 ${
                 focusedField === "C"
                   ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
                   : "border-white/20"
@@ -478,6 +493,7 @@ export default function Dividend() {
             </label>
             <input
               type="number"
+              onWheel={(e) => (e.target as HTMLElement).blur()}
               value={inputD}
               disabled
               className="w-full p-3 rounded-xl bg-zinc-800 text-zinc-300 border border-white/20 outline-none"
@@ -492,6 +508,7 @@ export default function Dividend() {
             </label>
             <input
               type="number"
+              onWheel={(e) => (e.target as HTMLElement).blur()}
               value={majorHold}
               onChange={(e) => setMajorHold(String(toInt(e.target.value)))}
               onFocus={() => setFocusedField("major")}
@@ -546,6 +563,7 @@ export default function Dividend() {
             {/* 文字輸入框 */}
             <input
               type="number"
+              onWheel={(e) => (e.target as HTMLElement).blur()}
               value={minorHold}
               onChange={(e) => setMinorHold(String(toInt(e.target.value)))}
               onFocus={() => setFocusedField("minor")}
@@ -649,7 +667,7 @@ export default function Dividend() {
               setMajorHold("60");
               setMinorHold("0");
             }}
-            className="px-3 py-2 rounded-lg border border-white/15 bg-white/10 hover:bg-white/15"
+            className="px-3 py-2 rounded-lg border border-white/15 bg-white/10 hover:bg白/15"
           >
             ↺ 重置為示範值
           </button>
@@ -709,10 +727,15 @@ export default function Dividend() {
                     minor: minorHold,
                   }).toString();
                   const url = `${location.origin}${import.meta.env.BASE_URL}?${p}`;
-                  navigator.clipboard.writeText(url).then(() => {
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  });
+                  navigator.clipboard.writeText(url).then(
+                    () => {
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    },
+                    () => {
+                      window.prompt("複製這個連結：", url);
+                    }
+                  );
                 }}
                 className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15"
               >
