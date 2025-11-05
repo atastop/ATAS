@@ -98,6 +98,7 @@ export default function Dividend() {
   const [copied, setCopied] = useState(false);
 
   
+  
 
 
     // 把目前狀態做成網址參數字串
@@ -198,7 +199,7 @@ const minorPct = useMemo(() => {
   if (!majorInt) return 0;
   return Math.max(0, Math.min(100, (minorInt / majorInt) * 100));
 }, [minorInt, majorInt]);
-
+void minorPct; // 👈 加這行，告訴 TS：我有讀取這個值（沒有副作用）
 
   // ===== 計算公式 =====
     const calculateProfit = () => {
@@ -524,10 +525,19 @@ useEffect(() => {
   />
   {/* 自訂視覺底條 + 進度條（不依賴原生 range 樣式，跨瀏覽器更穩） */}
   <div className="mt-1 h-2.5 w-full rounded-full bg-white/[0.08] border border-white/10 overflow-hidden">
-    <div
-      className="h-full bg-gradient-to-r from-emerald-400 to-sky-400 transition-all duration-500 ease-out"
-      style={{ width: `${majorPct}%` }}
-    />
+  <motion.div
+  className="h-full bg-gradient-to-r from-emerald-400 to-sky-400"
+  style={{ width: `${majorPct}%` }}
+  animate={{
+    boxShadow: [
+      "0 0 0 rgba(16,185,129,0)",   // 無光
+      "0 0 20px rgba(16,185,129,.45)", // 亮一下
+      "0 0 0 rgba(16,185,129,0)"    // 收回
+    ]
+  }}
+  transition={{ duration: 0.6 }}
+/>
+
   </div>
   <div className="mt-1 text-[11px] text-zinc-400">
     目前：{majorInt} 股（佔總股份 {majorPct.toFixed(1)}%）
@@ -577,21 +587,46 @@ useEffect(() => {
       aria-label="小股東持股滑桿"
     />
 
-    {/* 自訂底條 + 動態進度條（顏色會隨警示變化） */}
-    <div className="mt-1 h-2.5 w-full rounded-full overflow-hidden border 
-                    border-white/10 bg-white/[0.06]">
-      <div
-        className={`h-full transition-all duration-500 ease-out ${
-          (() => {
-            const c = validateMinorHold();
-            if (!c.valid) return "bg-red-400";
-            if (c.warn) return "bg-amber-400";
-            return "bg-gradient-to-r from-emerald-400 to-sky-400";
-          })()
-        }`}
-        style={{ width: `${minorPct}%` }}
+    {/* 自訂底條 + 動態進度條（顏色會隨警示變化＋亮邊效果） */}
+<div className="mt-1 h-2.5 w-full rounded-full overflow-hidden border border-white/10 bg-white/[0.06]">
+  {(() => {
+    const c = validateMinorHold();
+    const pct = Math.min(
+      100,
+      ((parseInt(minorHold) || 0) / (parseInt(majorHold) || 1)) * 100
+    );
+
+    // 顏色依狀態改變
+    const cls = !c.valid
+      ? "bg-red-400"
+      : c.warn
+      ? "bg-amber-400"
+      : "bg-gradient-to-r from-emerald-400 to-sky-400";
+
+    // 光暈色依狀態改變
+    const glow = !c.valid
+      ? "rgba(248,113,113,.45)"  // red-400
+      : c.warn
+      ? "rgba(251,191,36,.45)"   // amber-400
+      : "rgba(16,185,129,.45)";  // emerald-400
+
+    return (
+      <motion.div
+        className={`h-full transition-all duration-500 ease-out ${cls}`}
+        style={{ width: `${pct}%` }}
+        animate={{
+          boxShadow: [
+            "0 0 0 rgba(0,0,0,0)",
+            `0 0 16px ${glow}`,
+            "0 0 0 rgba(0,0,0,0)",
+          ],
+        }}
+        transition={{ duration: 0.6 }}
       />
-    </div>
+    );
+  })()}
+</div>
+
 
     <div className="mt-1 text-[11px] text-zinc-400">
       目前：{minorHold} 股（佔大股東 {(
