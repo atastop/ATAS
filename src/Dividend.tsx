@@ -1,7 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react"; // ⬅️ 多了 useEffect
-
+import { useState, useEffect, useMemo, useRef } from "react";
 
 // ===== 小工具：格式化 =====
 const fmt = (n: number, digits = 2) =>
@@ -79,23 +78,48 @@ export default function Dividend() {
   const [majorHold, setMajorHold] = useState("60");
   const [minorHold, setMinorHold] = useState("0");
 
+    // 把目前狀態做成網址參數字串
+  const buildQueryString = () =>
+    new URLSearchParams({
+      a: inputA, b: inputB, c: inputC, d: inputD,
+      major: majorHold, minor: minorHold,
+    }).toString();
+
+    const syncTimer = useRef<number | null>(null);
+
+    useEffect(() => {
+      // 防抖：400ms 內最後一次變動才寫入網址
+      if (syncTimer.current) window.clearTimeout(syncTimer.current);
+      syncTimer.current = window.setTimeout(() => {
+        const qs = buildQueryString();
+        const url = `${location.pathname}?${qs}`;
+        history.replaceState(null, "", url);
+      }, 400);
+
+      return () => {
+        if (syncTimer.current) window.clearTimeout(syncTimer.current);
+      };
+      // 監聽所有會影響網址的欄位
+    }, [inputA, inputB, inputC, inputD, majorHold, minorHold]);
+
   // ===== 業務設定（可調）=====
-const MIN_RESERVE = 5; // 大股東至少需保留的股數（以後改這裡就好）
+  const MIN_RESERVE = 5; // 大股東至少需保留的股數（以後改這裡就好）
 
 
-  // 驗證小股東持股邏輯
-    const validateMinorHold = () => {
-    const major = parseNumber(majorHold);
-    const minor = parseNumber(minorHold);
-  
-    if (minor > major) {
-      return { valid: false, message: "小股東持股不可大於大股東持股" };
-    } else if (major - minor < MIN_RESERVE && minor > 0) {
-      return { valid: true, warn: true, message: `⚠ 大股東需保留至少 ${MIN_RESERVE} 股` };
-    } else {
-      return { valid: true, warn: false, message: "" };
-    }
-  };
+  // 驗證小股東持股邏輯：>大股東 = 錯誤；差額 < MIN_RESERVE = 警告
+  const validateMinorHold = () => {
+  const major = parseNumber(majorHold);
+  const minor = parseNumber(minorHold);
+
+  if (minor > major) {
+    return { valid: false, warn: false, message: "小股東持股不可大於大股東持股" };
+  }
+  if (minor > 0 && major - minor < MIN_RESERVE) {
+    // 例：major=60, minor=56~60 → 差額 < 5
+    return { valid: true, warn: true, message: `⚠ 大股東需保留至少 ${MIN_RESERVE} 股` };
+  }
+  return { valid: true, warn: false, message: "" };
+};
   
 
   // ===== 工具 =====
@@ -125,7 +149,7 @@ const MIN_RESERVE = 5; // 大股東至少需保留的股數（以後改這裡就
     return { total: totalProfit, major: majorProfit, minor: minorProfit, valid: true };
   };
 
-  const result = calculateProfit();
+    const result = useMemo(calculateProfit, [inputA, inputB, inputC, inputD, majorHold, minorHold]); 
 
   // ===== 初始：如果網址帶參數就還原狀態 =====
 useEffect(() => {
@@ -285,7 +309,10 @@ useEffect(() => {
         onChange={(e) => setInputA(e.target.value)}
         className="w-full p-3 rounded-xl bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60 outline-none"
       />
-    </div>
+      <p className="mt-1 text-xs text-zinc-400">
+      預覽：{fmt(parseNumber(inputA), 0)}
+      </p>
+     </div>
 
     <div>
       <label className="block mb-2">
@@ -329,6 +356,10 @@ useEffect(() => {
         }`}
       />
       <p className="mt-1 text-xs text-zinc-400">
+      預覽：{fmt(parseNumber(inputC), 0)}
+      </p>
+
+      <p className="mt-1 text-xs text-zinc-400">
         提醒：C 可為負數（整體輸贏後的淨利），為負時卡片數字會跟著變動。
       </p>
 
@@ -371,16 +402,17 @@ useEffect(() => {
         onChange={(e) => setMinorHold(e.target.value)}
         className="w-full p-3 rounded-xl bg-zinc-900 text-white border border-white/20 focus:ring-2 focus:ring-emerald-400/60 outline-none"
       />
-      {(() => {
-      const check = validateMinorHold();
-      if (!check.valid) {
+
+        {(() => {
+    const check = validateMinorHold();
+    if (!check.valid) {
       return <p className="mt-1 text-xs text-red-400">{check.message}</p>;
-      }
-      if (check.warn) {
+    }
+    if (check.warn) {
       return <p className="mt-1 text-xs text-amber-400">{check.message}</p>;
-      }
-      return null;
-      })()}
+    }
+    return null;
+  })()}
     </div>
   </form>
 
