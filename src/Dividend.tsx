@@ -645,7 +645,7 @@ export default function Dividend() {
           {/* 大股東 */}
           <div>
             <label className="block mb-2">
-              <span className="font-semibold">大股東持股（整數）</span>
+              <span className="font-semibold">大股東持股</span>
               <span className="text-xs text-zinc-400 ml-2">此線大股東擁有的股數</span>
             </label>
             <input
@@ -697,7 +697,7 @@ export default function Dividend() {
           {/* 小股東 */}
           <div>
             <label className="block mb-2">
-              <span className="font-semibold">小股東持股（整數）</span>
+              <span className="font-semibold">小股東持股</span>
               <span className="text-xs text-zinc-400 ml-2">從大股東持股中分出</span>
             </label>
             <input
