@@ -775,6 +775,44 @@ export default function Dividend() {
           </div>
         </form>
 
+        {/* 快速操作 */}
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setInputA("10000000");
+              setInputB("50000000");
+              setInputC("40000000");
+              setMajorHold("60");
+              setMinorHold("0");
+            }}
+            className="px-3 py-2 rounded-lg border border-white/15 bg-white/10 hover:bg-white/15"
+          >
+            ↺ 重置為示範值
+          </button>
+
+          <div className="text-xs text-zinc-400 ml-2">常用預設：</div>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: "60/55", major: "60", minor: "55" },
+              { label: "60/50", major: "60", minor: "50" },
+              { label: "90/80", major: "90", minor: "80" },
+            ].map(p => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => {
+                  setMajorHold(p.major);
+                  setMinorHold(p.minor);
+                }}
+                className="px-2.5 py-1.5 rounded-md border border-white/15 bg-white/[0.06] hover:bg-white/[0.12] text-xs"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* 結果 */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
           {result.valid ? (
