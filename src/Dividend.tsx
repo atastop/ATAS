@@ -796,7 +796,8 @@ export default function Dividend() {
             {[
               { label: "60/55", major: "60", minor: "55" },
               { label: "60/50", major: "60", minor: "50" },
-              { label: "90/80", major: "90", minor: "80" },
+              { label: "80/70", major: "90", minor: "80" },
+              { label: "60/10", major: "60", minor: "10" },
             ].map(p => (
               <button
                 key={p.label}
@@ -813,13 +814,28 @@ export default function Dividend() {
           </div>
         </div>
 
-        {/* 結果 */}
+        {/* 結果顯示（3 卡平均 + 額外比例說明） */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
           {result.valid ? (
             <>
-              <StatCard title="總獲利" value={result.total} colorClass="text-emerald-400" digits={2} />
-              <StatCard title="大股東獲利" value={result.major} colorClass="text-sky-400" digits={2} />
-              <StatCard title="小股東獲利" value={result.minor} colorClass="text-amber-300" digits={2} />
+              <StatCard
+                title="總獲利（你的分紅）"
+                value={result.total}
+                colorClass="text-emerald-400"
+                digits={2}
+              />
+              <StatCard
+                title="大股東實拿獲利"
+                value={result.major}
+                colorClass="text-sky-400"
+                digits={2}
+              />
+              <StatCard
+                title="小股東分得獲利"
+                value={result.minor}
+                colorClass="text-amber-300"
+                digits={2}
+              />
             </>
           ) : (
             <div className="md:col-span-3 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-center text-red-300">
@@ -827,6 +843,29 @@ export default function Dividend() {
             </div>
           )}
         </div>
+
+        {/* 總結說明：比例與回報率 */}
+        {result.valid && (() => {
+          const A = parseNumber(inputA);
+          const C = parseNumber(inputC);
+          const F = result.total;
+
+          const pctOfC = C !== 0 ? (F / C) * 100 : 0;   // 占平台淨利
+          const roiOnA = A !== 0 ? (F / A) * 100 : 0;   // 相對你線營業額回報率
+
+          return (
+            <div className="mt-3 text-xs text-zinc-400 text-center space-y-1">
+              <div>
+                你本期分紅占「平台淨利」：
+                {C !== 0 ? `${fmt(pctOfC, 2)}%` : "-"}
+              </div>
+              <div>
+                你本期分紅相對「你這條線營業額」回報率：
+                {A !== 0 ? `${fmt(roiOnA, 2)}%` : "-"}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 分享 / 複製 */}
         <div className="mt-4 flex justify-center gap-3">
