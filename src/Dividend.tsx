@@ -2,7 +2,7 @@
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo, useRef } from "react";
 
-// ===== 工具：在地格式化（多鍵快取）=====
+/* ===== 工具：在地格式化（多鍵快取）===== */
 type FmtKey = `${string}|${number}|${number}`;
 const _formatters = new Map<FmtKey, Intl.NumberFormat>();
 const fmt = (n: number, min = 0, locale = "zh-TW", max = min) => {
@@ -18,51 +18,42 @@ const fmt = (n: number, min = 0, locale = "zh-TW", max = min) => {
   return nf.format(n);
 };
 
-// ===== 顯示單位切換：元 / 萬 / 億 =====
+/* ===== 顯示單位切換：元 / 萬 / 億 ===== */
 type Unit = "元" | "萬" | "億";
-const UNIT_DIV: Record<Unit, number> = { "元": 1, "萬": 1e4, "億": 1e8 };
-
-// 依單位格式化（元→0位；萬/億→2位）
-const fmtByUnit = (
-  n: number,
-  unit: Unit,
-  digitsForYuan = 2,
-  digitsForWanYi = 2
-) => {
+const UNIT_DIV: Record<Unit, number> = { 元: 1, 萬: 1e4, 億: 1e8 };
+// 依單位格式化（元/萬/億都顯示 2 位小數；可調）
+const fmtByUnit = (n: number, unit: Unit, digitsForYuan = 2, digitsForWanYi = 2) => {
   const v = n / UNIT_DIV[unit];
   const d = unit === "元" ? digitsForYuan : digitsForWanYi;
   return fmt(v, d);
 };
 
-
-// ===== 短連結編碼（base36 + ZigZag + CRC32）=====
+/* ===== 短連結編碼（base36 + ZigZag + CRC32）===== */
 const toZigZag = (n: number) => (n >= 0 ? n * 2 : -n * 2 - 1);
 const fromZigZag = (z: number) => (z % 2 === 0 ? z / 2 : -(z + 1) / 2);
 const enc36 = (n: number) => Math.max(0, Math.trunc(n)).toString(36);
 const dec36 = (s: string) => Number.parseInt(s, 36) || 0;
 
 type ShareState = {
-  a: number; b: number; c: number; d: number; major: number; minor: number;
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+  major: number;
+  minor: number;
 };
 
-// CRC32 for integrity
 const crc32 = (s: string) => {
   let c = ~0 >>> 0;
   for (let i = 0; i < s.length; i++) {
     c ^= s.charCodeAt(i);
-    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1));
+    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
   }
   return (~c >>> 0).toString(36);
 };
 
-const encodeBodyV1 = (s: ShareState) => [
-  enc36(s.a),
-  enc36(s.b),
-  enc36(toZigZag(s.c)),
-  enc36(s.d),
-  enc36(s.major),
-  enc36(s.minor),
-].join(".");
+const encodeBodyV1 = (s: ShareState) =>
+  [enc36(s.a), enc36(s.b), enc36(toZigZag(s.c)), enc36(s.d), enc36(s.major), enc36(s.minor)].join(".");
 
 const encodeHashV1 = (s: ShareState) => {
   const body = encodeBodyV1(s);
@@ -72,8 +63,8 @@ const encodeHashV1 = (s: ShareState) => {
 const clampShareState = (s: ShareState): ShareState => ({
   a: Math.max(0, Math.trunc(s.a)),
   b: Math.max(1, Math.trunc(s.b)),
-  c: Math.trunc(s.c),        // 允許負
-  d: 130,                    // 目前固定 130
+  c: Math.trunc(s.c),
+  d: 130,
   major: Math.min(130, Math.max(0, Math.trunc(s.major))),
   minor: Math.min(Math.trunc(s.major), Math.max(0, Math.trunc(s.minor))),
 });
@@ -82,7 +73,7 @@ const tryDecodeHash = (hash: string): ShareState | null => {
   const raw = hash.replace(/^#/, "");
   if (!raw.startsWith("v1:")) return null;
   const parts = raw.slice(3).split(".");
-  if (parts.length < 7) return null; // 6 欄 + 1 校驗
+  if (parts.length < 7) return null;
   const sum = parts.pop()!;
   const body = parts.join(".");
   if (crc32(body) !== sum) return null;
@@ -97,11 +88,11 @@ const tryDecodeHash = (hash: string): ShareState | null => {
   });
 };
 
-// 安全性：hash 檢查
+// 安全性
 const HASH_MAX = 128;
 const ALLOW_HASH = /^[a-z0-9:\.]+$/;
 
-// ===== Hook：平滑數字跳動（RAF + ease + 降低動態）=====
+/* ===== Hook：平滑數字跳動（RAF + ease）===== */
 function useCountUp(target: number, duration = 600) {
   const mounted = useRef(false);
   const [value, setValue] = useState(target);
@@ -112,7 +103,6 @@ function useCountUp(target: number, duration = 600) {
       setValue(target);
       return;
     }
-
     const prefersReduced =
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
@@ -137,33 +127,27 @@ function useCountUp(target: number, duration = 600) {
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target, duration]); // 不依賴 value，避免重置動畫
+  }, [target, duration]);
 
   return value;
 }
 
-// ===== 元件：結果卡（值為負時轉紅色）=====
+/* ===== 元件：結果卡（值為負時轉紅色）===== */
 function StatCard({
   title,
   value,
   colorClass,
-  digits = 2, // 預設兩位小數
+  digits = 2,
 }: {
   title: string;
   value: number;
-  colorClass: string; // e.g. "text-emerald-400"
+  colorClass: string;
   digits?: number;
 }) {
   const animated = useCountUp(value ?? 0, 700);
   const isNegative = value < 0;
-
-  const boxClass = isNegative
-    ? "border-red-400/40 bg-red-500/10"
-    : "border-white/10 bg-background-black";
-
+  const boxClass = isNegative ? "border-red-400/40 bg-red-500/10" : "border-white/10 bg-background-black";
   const valueClass = isNegative ? "text-red-400" : colorClass;
-
-  // 正目標時不顯示負過渡值；負目標時不顯示正過渡值
   const safeAnimated = value >= 0 ? Math.max(0, animated) : Math.min(0, animated);
 
   return (
@@ -173,9 +157,7 @@ function StatCard({
       animate={{
         boxShadow: [
           "0 0 0 rgba(0,0,0,0)",
-          isNegative
-            ? "0 0 24px rgba(248,113,113,0.20)"
-            : "0 0 24px rgba(34,197,94,0.12)",
+          isNegative ? "0 0 24px rgba(248,113,113,0.20)" : "0 0 24px rgba(34,197,94,0.12)",
           "0 0 0 rgba(0,0,0,0)",
         ],
         scale: [1, 1.01, 1],
@@ -190,7 +172,7 @@ function StatCard({
 }
 
 export default function Dividend() {
-  // ===== 狀態 =====
+  /* ===== 狀態 ===== */
   const isBrowser = typeof window !== "undefined";
   const logoUrl = import.meta.env.BASE_URL + "atas-logo.png";
   const noiseUrl = import.meta.env.BASE_URL + "noise.png";
@@ -204,7 +186,7 @@ export default function Dividend() {
   const [copied, setCopied] = useState(false);
   const [unit, setUnit] = useState<Unit>("元");
 
-  // 把目前狀態做成網址 hash 短碼
+  // 目前狀態 -> hash 短碼
   const stateToHash = () =>
     `#${encodeHashV1({
       a: parseNumber(inputA),
@@ -218,7 +200,7 @@ export default function Dividend() {
   const syncTimer = useRef<number | null>(null);
   const lastHash = useRef<string>("");
 
-  // URL 同步：以 hash 短碼表示目前狀態（防抖）
+  // URL 同步（防抖）
   useEffect(() => {
     if (!isBrowser) return;
     if (syncTimer.current) window.clearTimeout(syncTimer.current);
@@ -229,125 +211,113 @@ export default function Dividend() {
         history.replaceState(null, "", `${location.pathname}${newHash}`);
       }
     }, 400);
-
     return () => {
       if (syncTimer.current) window.clearTimeout(syncTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputA, inputB, inputC, inputD, majorHold, minorHold]);
 
-  // ===== 業務設定（可調）=====
-  const MIN_RESERVE = 5; // 大股東至少需保留的股數
+  /* ===== 業務設定 ===== */
+  const MIN_RESERVE = 5;
 
-  // ===== 工具 =====
+  /* ===== 解析 ===== */
   const parseNumber = (str: string) => {
     const s = (str ?? "")
       .trim()
-      .replace(/[　\s]/g, "")        // 移除空白（含全形）
-      .replace(/[，]/g, ",")         // 全形逗號 -> 半形
-      .replace(/[．。]/g, ".")       // 全形小數點 -> 半形
-      .replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30)); // 全形數字 -> 半形
+      .replace(/[　\s]/g, "")
+      .replace(/[，]/g, ",")
+      .replace(/[．。]/g, ".")
+      .replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xff10 + 0x30));
     if (s === "" || s === "-" || s === "+") return 0;
     const num = Number(s.replace(/,/g, ""));
     return Number.isFinite(num) ? num : 0;
   };
-  
 
-  // ===== 輸入淨化與夾限（支援小數）=====
   const toPosFloat = (str: string) => {
     const n = parseNumber(str);
     return Number.isFinite(n) ? Math.max(0, n) : 0;
   };
   const toFloatAllowNegative = (str: string) => {
     const n = parseNumber(str);
-    return Number.isFinite(n) ? n : 0; // 可為負
+    return Number.isFinite(n) ? n : 0;
   };
 
-  // 大股東不可超過 D
+  /* ===== 夾限：大/小股東（整數）===== */
   useEffect(() => {
-    const major = toPosFloat(majorHold);
-    const d = toPosFloat(inputD);
+    const major = Math.floor(toPosFloat(majorHold));
+    const d = Math.floor(toPosFloat(inputD));
     if (major > d) setMajorHold(String(d));
+    else setMajorHold(String(major));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [majorHold, inputD]);
 
-  // 小股東不可超過大股東
   useEffect(() => {
-    const minor = toPosFloat(minorHold);
-    const major = toPosFloat(majorHold);
+    const minor = Math.floor(toPosFloat(minorHold));
+    const major = Math.floor(toPosFloat(majorHold));
     if (minor > major) setMinorHold(String(major));
+    else setMinorHold(String(minor));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minorHold, majorHold]);
 
-  // ===== 小股東驗證（memo）=====
+  /* ===== 檢核 ===== */
   type MinorCheck = { valid: boolean; warn: boolean; message: string };
-
   const minorCheck: MinorCheck = useMemo(() => {
-    const major = parseNumber(majorHold);
-    const minor = parseNumber(minorHold);
-
+    const major = Math.floor(parseNumber(majorHold));
+    const minor = Math.floor(parseNumber(minorHold));
     if (minor > major) {
-      return {
-        valid: false,
-        warn: false,
-        message: "小股東持股不可大於大股東持股",
-      };
+      return { valid: false, warn: false, message: "小股東持股不可大於大股東持股" };
     }
     if (minor > 0 && major - minor < MIN_RESERVE) {
-      return {
-        valid: true,
-        warn: true,
-        message: `⚠ 大股東需保留至少 ${MIN_RESERVE} 股`,
-      };
+      return { valid: true, warn: true, message: `⚠ 大股東需保留至少 ${MIN_RESERVE} 股` };
     }
     return { valid: true, warn: false, message: "" };
-  }, [majorHold, minorHold, MIN_RESERVE]);
+  }, [majorHold, minorHold]);
 
-  // ===== 佔比（A/B）計算，0~100 夾限 =====
+  /* ===== 佔比 A/B ===== */
   const ratioAB = useMemo(() => {
     const A = parseNumber(inputA);
     const B = parseNumber(inputB);
     if (B <= 0) return 0;
-    const r = (A / B) * 100;
-    return Math.max(0, Math.min(100, r));
+    return Math.max(0, Math.min(100, (A / B) * 100));
   }, [inputA, inputB]);
 
-  // ===== 百分比（滑桿視覺用）=====
+  /* ===== 百分比與展示用值 ===== */
   const dFloat = toPosFloat(inputD);
-  const majorFloat = toPosFloat(majorHold);
-  const minorFloat = toPosFloat(minorHold);
+  const majorFloat = Math.floor(toPosFloat(majorHold)); // 整數
+  const minorFloat = Math.floor(toPosFloat(minorHold)); // 整數
+  const minorInt = minorFloat;
 
   const majorPct = useMemo(() => {
     if (!dFloat) return 0;
     return Math.max(0, Math.min(100, (majorFloat / dFloat) * 100));
   }, [majorFloat, dFloat]);
 
-  // 小股東的視覺百分比，以「占大股東持股的比例」呈現
   const minorPct = useMemo(() => {
     if (!majorFloat) return 0;
     return Math.max(0, Math.min(100, (minorFloat / majorFloat) * 100));
   }, [minorFloat, majorFloat]);
 
-  // ===== 計算公式 =====
+  /* ===== 計算 ===== */
   const result = useMemo(() => {
     const A = parseNumber(inputA);
     const B = parseNumber(inputB);
     const C = parseNumber(inputC);
     const D = parseNumber(inputD);
-    const major = parseNumber(majorHold);
-    const minor = parseNumber(minorHold);
+    const major = Math.floor(parseNumber(majorHold));
+    const minor = Math.floor(parseNumber(minorHold));
 
     if (A <= 0 || B <= 0 || D <= 0 || major <= 0 || A > B) {
       return { total: 0, major: 0, minor: 0, valid: false };
     }
 
     const totalProfit = C * (A / B) * (major / D);
-    const minorProfit =
-      minor > 0 && minor <= major ? (totalProfit * minor) / major : 0;
+    const minorProfit = minor > 0 && minor <= major ? (totalProfit * minor) / major : 0;
     const majorProfit = totalProfit - minorProfit;
 
     return { total: totalProfit, major: majorProfit, minor: minorProfit, valid: true };
   }, [inputA, inputB, inputC, inputD, majorHold, minorHold]);
 
-  // ===== 初始：先讀 hash 短碼，失敗再讀舊 query =====
+  /* ===== 初始：優先讀 hash，失敗回退 query ===== */
   useEffect(() => {
     if (!isBrowser) return;
     const rawHash = location.hash.slice(0, HASH_MAX);
@@ -366,15 +336,12 @@ export default function Dividend() {
         history.replaceState(null, "", location.pathname);
       }
     }
-
-    // 相容舊 query（僅一次性）
     const q = new URLSearchParams(location.search);
     const a = q.get("a");
     const b = q.get("b");
     const c = q.get("c");
     const major = q.get("major");
     const minor = q.get("minor");
-
     if (a) setInputA(a);
     if (b) setInputB(b);
     if (c) setInputC(c);
@@ -382,7 +349,7 @@ export default function Dividend() {
     if (minor) setMinorHold(minor);
   }, [isBrowser]);
 
-  // ===== 共同 UI 行為：輸入防誤觸 =====
+  /* ===== 輸入 UX ===== */
   const preventSpinKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (["ArrowUp", "ArrowDown", "PageUp", "PageDown"].includes(e.key)) e.preventDefault();
   };
@@ -390,27 +357,21 @@ export default function Dividend() {
     (e.target as HTMLElement).blur();
   };
 
-  // ===== Render =====
+  /* ===== Render ===== */
   return (
     <section className="relative min-h-screen py-12 md:py-16 px-4 md:px-8 bg-[#0a0a0a] text-white overflow-hidden">
-      {/* 背景光暈 + 細噪點層 */}
+      {/* 背景 */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0
-             bg-[radial-gradient(80%_60%_at_50%_0%,rgba(255,255,255,.12),transparent)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_0%,rgba(255,255,255,.12),transparent)]"
       />
-      {/* 噪點層（不混合，改用透明度） */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-10"
-        style={{
-          backgroundImage: `url(${noiseUrl})`,
-          backgroundRepeat: "repeat",
-          backgroundSize: "256px 256px",
-        }}
+        style={{ backgroundImage: `url(${noiseUrl})`, backgroundRepeat: "repeat", backgroundSize: "256px 256px" }}
       />
 
-      {/* 標題區 */}
+      {/* 標題 */}
       <div className="max-w-6xl mx-auto">
         <div className="relative isolate w-full flex justify-center items-center mt-10 mb-4">
           <img
@@ -498,52 +459,45 @@ export default function Dividend() {
       </motion.div>
 
       {/* 公式展示（動態） */}
-        <div className="max-w-6xl mx-auto text-center mt-10 md:mt-12">
-          <p className="text-lg md:text-xl text-white/[0.85] font-medium tracking-wider">
-            A ÷ B × C ÷ D × E = F
-          </p>
+      <div className="max-w-6xl mx-auto text-center mt-10 md:mt-12">
+        <p className="text-lg md:text-xl text-white/[0.85] font-medium tracking-wider">A ÷ B × C ÷ D × E = F</p>
 
-          {(() => {
-            const A = parseNumber(inputA);
-            const B = parseNumber(inputB);
-            const C = parseNumber(inputC);
-            const D = parseNumber(inputD);
-            const E = parseNumber(majorHold);
+        {(() => {
+          const A = parseNumber(inputA);
+          const B = parseNumber(inputB);
+          const C = parseNumber(inputC);
+          const D = parseNumber(inputD);
+          const E = Math.floor(parseNumber(majorHold));
+          const valid = A > 0 && B > 0 && D > 0 && E > 0 && A <= B;
+          const F = valid ? C * (A / B) * (E / D) : 0;
 
-            const valid = A > 0 && B > 0 && D > 0 && E > 0 && A <= B;
-            const F = valid ? C * (A / B) * (E / D) : 0;
+          const DIGITS_YUAN = 2;
+          const DIGITS_WANYI = 2;
 
-            // 小數位控制：元/萬/億都顯示 2 位（可自行調整）
-            const DIGITS_YUAN = 2;
-            const DIGITS_WANYI = 2;
+          const numByUnit = (n: number, klass: string) => (
+            <span className={klass}>{fmtByUnit(n, unit, DIGITS_YUAN, DIGITS_WANYI)}</span>
+          );
 
-            const numByUnit = (n: number, klass: string) => (
-              <span className={klass}>{fmtByUnit(n, unit, DIGITS_YUAN, DIGITS_WANYI)}</span>
-            );
-
-            return (
-              <p className="mt-4 text-[17px] md:text-[20px] font-semibold tracking-wide">
-                {numByUnit(A, "text-orange-400")} <span className="text-white/80">÷</span>{" "}
-                {numByUnit(B, "text-red-400")} <span className="text-white/80">×</span>{" "}
-                {numByUnit(C, "text-sky-400")} <span className="text-white/80">÷</span>{" "}
-                <span className="text-purple-400">{fmt(D, 0)}</span>{" "}
-                <span className="text-white/80">×</span>{" "}
-                <span className="text-emerald-400">{fmt(E, 2)}</span>{" "}
-                <span className="text-white/80">=</span>{" "}
-                <span className={F < 0 ? "text-red-400" : "text-emerald-400"}>
-                  {fmtByUnit(F, unit, DIGITS_YUAN, DIGITS_WANYI)}
-                </span>
-                <span className="ml-2 text-sm text-zinc-400 align-middle">（單位：{unit}）</span>
-              </p>
-            );
-          })()}
-        </div>
-
+          return (
+            <p className="mt-4 text-[17px] md:text-[20px] font-semibold tracking-wide">
+              {numByUnit(A, "text-orange-400")} <span className="text-white/80">÷</span>{" "}
+              {numByUnit(B, "text-red-400")} <span className="text-white/80">×</span>{" "}
+              {numByUnit(C, "text-sky-400")} <span className="text-white/80">÷</span>{" "}
+              <span className="text-purple-400">{fmt(D, 0)}</span> <span className="text-white/80">×</span>{" "}
+              <span className="text-emerald-400">{fmt(E, 0)}</span> <span className="text-white/80">=</span>{" "}
+              <span className={F < 0 ? "text-red-400" : "text-emerald-400"}>
+                {fmtByUnit(F, unit, DIGITS_YUAN, DIGITS_WANYI)}
+              </span>
+              <span className="ml-2 text-sm text-zinc-400 align-middle">（單位：{unit}）</span>
+            </p>
+          );
+        })()}
+      </div>
 
       {/* 單位切換 */}
       <div className="mt-4 flex justify-center">
         <div className="inline-flex rounded-lg border border-white/15 bg-white/[0.06] p-1">
-          {(["元","萬","億"] as Unit[]).map(u => (
+          {(["元", "萬", "億"] as Unit[]).map(u => (
             <button
               key={u}
               type="button"
@@ -561,11 +515,9 @@ export default function Dividend() {
 
       {/* 表單卡片 */}
       <div className="max-w-5xl mx-auto mt-10 md:mt-12 rounded-2xl border border-white/15 bg-white/[0.08] backdrop-blur-sm shadow-xl shadow-black/30 p-6 md:p-8">
-        <h3 className="text-center text-2xl md:text-3xl font-semibold mb-6">
-          股東獲利試算
-        </h3>
+        <h3 className="text-center text-2xl md:text-3xl font-semibold mb-6">股東獲利試算</h3>
 
-        <form onSubmit={(e) => e.preventDefault()} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form onSubmit={e => e.preventDefault()} className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* A */}
           <div>
             <label className="block mb-2">
@@ -578,13 +530,11 @@ export default function Dividend() {
               onWheel={blurOnWheel}
               onKeyDown={preventSpinKeys}
               value={inputA}
-              onChange={(e) => setInputA(e.target.value)}
+              onChange={e => setInputA(e.target.value)}
               onFocus={() => setFocusedField("A")}
               onBlur={() => setFocusedField(null)}
               className={`w-full p-3 rounded-xl bg-zinc-900 text-white border outline-none transition-all duration-300 ${
-                focusedField === "A"
-                  ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
-                  : "border-white/20"
+                focusedField === "A" ? "border-emerald-400/80 ring-2 ring-emerald-400/30" : "border-white/20"
               }`}
             />
             <p className="mt-1 text-xs text-zinc-400">預覽：{fmt(parseNumber(inputA), 2)}</p>
@@ -602,7 +552,7 @@ export default function Dividend() {
               onWheel={blurOnWheel}
               onKeyDown={preventSpinKeys}
               value={inputB}
-              onChange={(e) => setInputB(e.target.value)}
+              onChange={e => setInputB(e.target.value)}
               onFocus={() => setFocusedField("B")}
               onBlur={() => setFocusedField(null)}
               aria-invalid={parseNumber(inputA) > parseNumber(inputB)}
@@ -620,7 +570,7 @@ export default function Dividend() {
               <p className="mt-1 text-xs text-red-400">⚠ A 不能大於 B，請確認數值。</p>
             )}
 
-            {/* 進度條（A/B） */}
+            {/* A/B 進度條 */}
             <div className="mt-2">
               <div className="h-2.5 w-full rounded-full bg-white/[0.06] overflow-hidden border border-white/10">
                 <div
@@ -633,9 +583,7 @@ export default function Dividend() {
                   role="progressbar"
                 />
               </div>
-              <div className="mt-1 text-[11px] text-zinc-400">
-                佔比：{fmt(ratioAB, 2)}%
-              </div>
+              <div className="mt-1 text-[11px] text-zinc-400">佔比：{fmt(ratioAB, 2)}%</div>
             </div>
           </div>
 
@@ -648,60 +596,41 @@ export default function Dividend() {
             <input
               type="text"
               value={inputC}
-              onChange={(e) => {
+              onChange={e => {
                 const val = e.target.value;
-
-                // 允許中間狀態：空字串、單獨正負號、或以小數點結尾（含正負）
-                if (
-                  /^\s*$/.test(val) ||
-                  val === "-" || val === "+" ||
-                  /^[-+]?\d+\.$/.test(val) ||   // "12."
-                  /^[-+]?\d*\.$/.test(val)      // "."
-                ) {
+                if (/^\s*$/.test(val) || val === "-" || val === "+" || /^[-+]?\d+\.$/.test(val) || /^[-+]?\d*\.$/.test(val)) {
                   setInputC(val);
                   return;
                 }
-
-                // 正規化（含全形小數點）後再數值化
                 const normalized = val
                   .replace(/[　\s]/g, "")
                   .replace(/[，]/g, ",")
                   .replace(/[．。]/g, ".")
-                  .replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFF10 + 0x30));
-
+                  .replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xff10 + 0x30));
                 setInputC(String(toFloatAllowNegative(normalized)));
               }}
               onFocus={() => setFocusedField("C")}
               onBlur={() => {
                 setFocusedField(null);
-                // 失焦時把中間狀態收斂成合法數值字串
                 const v = inputC;
-                if (
-                  v === "-" || v === "+" ||
-                  /^[-+]?\d*\.$/.test(v)
-                ) {
+                if (v === "-" || v === "+" || /^[-+]?\d*\.$/.test(v)) {
                   const num = toFloatAllowNegative(v);
                   setInputC(String(num));
                 }
               }}
               className={`w-full p-3 rounded-xl bg-zinc-900 text-white border outline-none transition-all duration-300 ${
-                focusedField === "C"
-                  ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
-                  : "border-white/20"
+                focusedField === "C" ? "border-emerald-400/80 ring-2 ring-emerald-400/30" : "border-white/20"
               }`}
             />
-
             <p className="mt-1 text-xs text-zinc-400">預覽：{fmt(parseNumber(inputC), 2)}</p>
-            <p className="mt-1 text-xs text-zinc-400">
-              提醒：C 可為負數（整體輸贏後的淨利），為負時卡片數字會跟著變動。
-            </p>
+            <p className="mt-1 text-xs text-zinc-400">提醒：C 可為負數。</p>
           </div>
 
           {/* D */}
           <div>
             <label className="block mb-2">
               <span className="font-semibold">D（股份總數）</span>
-              <span className="text-xs text-zinc-400 ml-2">固定為 130 股，不會調整</span>
+              <span className="text-xs text-zinc-400 ml-2">固定為 130 股</span>
             </label>
             <input
               type="number"
@@ -716,38 +645,35 @@ export default function Dividend() {
           {/* 大股東 */}
           <div>
             <label className="block mb-2">
-              <span className="font-semibold">大股東持股</span>
+              <span className="font-semibold">大股東持股（整數）</span>
               <span className="text-xs text-zinc-400 ml-2">此線大股東擁有的股數</span>
             </label>
             <input
               type="number"
-              step="0.01"
+              step="1"
               onWheel={blurOnWheel}
               onKeyDown={preventSpinKeys}
               value={majorHold}
-              onChange={(e) => setMajorHold(String(toPosFloat(e.target.value)))}
+              onChange={e => setMajorHold(String(Math.floor(toPosFloat(e.target.value))))}
               onFocus={() => setFocusedField("major")}
               onBlur={() => setFocusedField(null)}
               className={`w-full p-3 rounded-xl bg-zinc-900 text-white border outline-none transition-all duration-300 ${
-                focusedField === "major"
-                  ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
-                  : "border-white/20"
+                focusedField === "major" ? "border-emerald-400/80 ring-2 ring-emerald-400/30" : "border-white/20"
               }`}
             />
 
-            {/* 滑桿（以 D 為上限） */}
+            {/* 滑桿 */}
             <div className="mt-3">
               <input
                 type="range"
                 min={0}
-                max={dFloat || 130}
-                step={0.01}
+                max={Math.floor(dFloat) || 130}
+                step={1}
                 value={majorFloat}
-                onChange={(e) => setMajorHold(e.target.value)}
+                onChange={e => setMajorHold(e.target.value)}
                 className="w-full appearance-none bg-transparent cursor-pointer"
                 aria-label="大股東持股滑桿"
               />
-              {/* 自訂視覺底條 + 進度條 */}
               <div className="mt-1 h-2.5 w-full rounded-full bg-white/[0.08] border border-white/10 overflow-hidden">
                 <motion.div
                   className="h-full bg-gradient-to-r from-emerald-400 to-sky-400"
@@ -757,17 +683,13 @@ export default function Dividend() {
                   aria-valuemax={100}
                   aria-valuenow={Number(majorPct.toFixed(2))}
                   animate={{
-                    boxShadow: [
-                      "0 0 0 rgba(16,185,129,0)",
-                      "0 0 20px rgba(16,185,129,.45)",
-                      "0 0 0 rgba(16,185,129,0)",
-                    ],
+                    boxShadow: ["0 0 0 rgba(16,185,129,0)", "0 0 20px rgba(16,185,129,.45)", "0 0 0 rgba(16,185,129,0)"],
                   }}
                   transition={{ duration: 0.6 }}
                 />
               </div>
               <div className="mt-1 text-[11px] text-zinc-400">
-                目前：{fmt(majorFloat, 2)} 股（佔總股份 {majorPct.toFixed(2)}%）
+                目前：{fmt(majorFloat, 0)} 股（佔總股份 {majorPct.toFixed(1)}%）
               </div>
             </div>
           </div>
@@ -775,72 +697,55 @@ export default function Dividend() {
           {/* 小股東 */}
           <div>
             <label className="block mb-2">
-              <span className="font-semibold">小股東持股</span>
-              <span className="text-xs text-zinc-400 ml-2">從大股東持股中分出的小股東股數</span>
+              <span className="font-semibold">小股東持股（整數）</span>
+              <span className="text-xs text-zinc-400 ml-2">從大股東持股中分出</span>
             </label>
-
-            {/* 文字輸入框 */}
             <input
               type="number"
-              step="0.01"
+              step="1"
               onWheel={blurOnWheel}
               onKeyDown={preventSpinKeys}
               value={minorHold}
-              onChange={(e) => {
-                const v = toPosFloat(e.target.value);
-                setMinorHold(String(Math.min(v, toPosFloat(majorHold))));
+              onChange={e => {
+                const v = Math.floor(toPosFloat(e.target.value));
+                setMinorHold(String(Math.min(v, Math.floor(toPosFloat(majorHold)))));
               }}
               onFocus={() => setFocusedField("minor")}
               onBlur={() => setFocusedField(null)}
               aria-invalid={!minorCheck.valid}
               className={`w-full p-3 rounded-xl bg-zinc-900 text-white border outline-none transition-all duration-300 ${
-                (() => {
-                  const c = minorCheck;
-                  if (!c.valid)
-                    return focusedField === "minor"
-                      ? "border-red-400/80 ring-2 ring-red-400/30"
-                      : "border-red-400/60";
-                  if (c.warn)
-                    return focusedField === "minor"
-                      ? "border-amber-400/80 ring-2 ring-amber-400/30"
-                      : "border-amber-400/50";
-                  return focusedField === "minor"
-                    ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
-                    : "border-white/20";
-                })()
+                !minorCheck.valid
+                  ? focusedField === "minor"
+                    ? "border-red-400/80 ring-2 ring-red-400/30"
+                    : "border-red-400/60"
+                  : minorCheck.warn
+                  ? focusedField === "minor"
+                    ? "border-amber-400/80 ring-2 ring-amber-400/30"
+                    : "border-amber-400/50"
+                  : focusedField === "minor"
+                  ? "border-emerald-400/80 ring-2 ring-emerald-400/30"
+                  : "border-white/20"
               }`}
             />
 
-            {/* 滑桿 + 視覺進度條 */}
+            {/* 滑桿 */}
             <div className="mt-3">
               <input
                 type="range"
                 min={0}
                 max={majorFloat || 0}
-                step={0.01}
+                step={1}
                 value={Math.min(minorFloat || 0, majorFloat || 0)}
-                onChange={(e) => setMinorHold(e.target.value)}
+                onChange={e => setMinorHold(e.target.value)}
                 className="w-full appearance-none bg-transparent cursor-pointer"
                 aria-label="小股東持股滑桿"
               />
-
               <div className="mt-1 h-2.5 w-full rounded-full overflow-hidden border border-white/10 bg-white/[0.06]">
                 {(() => {
                   const c = minorCheck;
                   const pct = minorPct;
-
-                  const cls = !c.valid
-                    ? "bg-red-400"
-                    : c.warn
-                    ? "bg-amber-400"
-                    : "bg-gradient-to-r from-emerald-400 to-sky-400";
-
-                  const glow = !c.valid
-                    ? "rgba(248,113,113,.45)"
-                    : c.warn
-                    ? "rgba(251,191,36,.45)"
-                    : "rgba(16,185,129,.45)";
-
+                  const cls = !c.valid ? "bg-red-400" : c.warn ? "bg-amber-400" : "bg-gradient-to-r from-emerald-400 to-sky-400";
+                  const glow = !c.valid ? "rgba(248,113,113,.45)" : c.warn ? "rgba(251,191,36,.45)" : "rgba(16,185,129,.45)";
                   return (
                     <motion.div
                       className={`h-full transition-all duration-500 ease-out ${cls}`}
@@ -849,77 +754,28 @@ export default function Dividend() {
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={Number(pct.toFixed(2))}
-                      animate={{
-                        boxShadow: [
-                          "0 0 0 rgba(0,0,0,0)",
-                          `0 0 16px ${glow}`,
-                          "0 0 0 rgba(0,0,0,0)",
-                        ],
-                      }}
+                      animate={{ boxShadow: ["0 0 0 rgba(0,0,0,0)", `0 0 16px ${glow}`, "0 0 0 rgba(0,0,0,0)"] }}
                       transition={{ duration: 0.6 }}
                     />
                   );
                 })()}
               </div>
-
               <div className="mt-1 text-[11px] text-zinc-400">
-                目前：{fmt(minorFloat, 2)} 股（佔大股東 {((minorFloat / (majorFloat || 1)) * 100).toFixed(2)}%）
+                目前：{fmt(minorInt, 0)} 股（佔大股東 {minorPct.toFixed(1)}%）
               </div>
             </div>
 
-            {/* 警告訊息（改用 minorCheck） */}
+            {/* 警告訊息 */}
             {(() => {
               const c = minorCheck;
-              if (!c.valid) {
-                return <p className="mt-1 text-xs text-red-400">{c.message}</p>;
-              }
-              if (c.warn) {
-                return <p className="mt-1 text-xs text-amber-400">{c.message}</p>;
-              }
+              if (!c.valid) return <p className="mt-1 text-xs text-red-400">{c.message}</p>;
+              if (c.warn) return <p className="mt-1 text-xs text-amber-400">{c.message}</p>;
               return null;
             })()}
           </div>
         </form>
 
-        {/* 快速操作 */}
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              setInputA("10000000");
-              setInputB("50000000");
-              setInputC("40000000");
-              setMajorHold("60");
-              setMinorHold("0");
-            }}
-            className="px-3 py-2 rounded-lg border border-white/15 bg-white/10 hover:bg-white/15"
-          >
-            ↺ 重置為示範值
-          </button>
-
-          <div className="text-xs text-zinc-400 ml-2">常用預設：</div>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { label: "60/55", major: "60", minor: "55" },
-              { label: "60/50", major: "60", minor: "50" },
-              { label: "90/80", major: "90", minor: "80" },
-            ].map((p) => (
-              <button
-                key={p.label}
-                type="button"
-                onClick={() => {
-                  setMajorHold(p.major);
-                  setMinorHold(p.minor);
-                }}
-                className="px-2.5 py-1.5 rounded-md border border-white/15 bg-white/[0.06] hover:bg-white/[0.12] text-xs"
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 結果顯示 */}
+        {/* 結果 */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
           {result.valid ? (
             <>
@@ -929,7 +785,7 @@ export default function Dividend() {
             </>
           ) : (
             <div className="md:col-span-3 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-center text-red-300">
-              ⚠ 無效輸入，請確認 A ≤ B、持股數為正，且 D {">"} 0
+              ⚠ 無效輸入，請確認 A ≤ B、持股為正，且 D &gt; 0
             </div>
           )}
         </div>
@@ -943,9 +799,7 @@ export default function Dividend() {
               if ((navigator as any).share) {
                 try {
                   await (navigator as any).share({ title: "ATAS 試算", url: short });
-                } catch {
-                  // 使用者取消分享，忽略
-                }
+                } catch {}
               } else {
                 window.prompt("複製這個連結：", short);
               }
@@ -979,9 +833,7 @@ export default function Dividend() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg
-                      bg-emerald-500/90 text-white text-sm shadow-lg shadow-emerald-500/30
-                      animate-in fade-in zoom-in duration-200"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-emerald-500/90 text-white text-sm shadow-lg shadow-emerald-500/30 animate-in fade-in zoom-in duration-200"
         >
           ✅ 已複製分享連結
         </div>
